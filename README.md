@@ -82,20 +82,20 @@ pip install .
 # Dry run (preview what would change)
 tasksmd-sync TASKS.md \
   --org harmoniqs \
-  --project-number 1 \
+  --project-number 2 \
   --dry-run \
   --verbose
 
 # Live sync
 tasksmd-sync TASKS.md \
   --org harmoniqs \
-  --project-number 1 \
+  --project-number 2 \
   --token "$GITHUB_TOKEN"
 
 # Scoped sync (only archive items tagged with this repo's label)
 tasksmd-sync TASKS.md \
   --org harmoniqs \
-  --project-number 1 \
+  --project-number 2 \
   --repo-label "Piccolo.jl"
 ```
 
@@ -136,7 +136,7 @@ jobs:
         with:
           tasks-file: TASKS.md
           org: harmoniqs
-          project-number: '1'
+          project-number: '2'
           repo-label: ${{ github.event.repository.name }}
           github-token: ${{ secrets.PROJECTS_TOKEN }}
           dry-run: ${{ github.event_name == 'pull_request' }}
@@ -181,7 +181,7 @@ pip install pytest
 pytest
 
 # Run the parser on a sample file
-python -m tasksmd_sync.cli sample_TASKS.md --org harmoniqs --project-number 1 --dry-run -v
+python -m tasksmd_sync.cli sample_TASKS.md --org harmoniqs --project-number 2 --dry-run -v
 ```
 
 ## License

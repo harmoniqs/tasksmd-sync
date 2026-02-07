@@ -183,7 +183,7 @@ def _needs_update(task: Task, board_item: ProjectItem) -> bool:
     """Check if a task's fields differ from the board item."""
     if task.title != board_item.title:
         return True
-    if task.status and task.status != board_item.status:
+    if task.status and task.status.lower() != (board_item.status or "").lower():
         return True
     if task.description.strip() != (board_item.description or "").strip():
         return True
@@ -203,10 +203,10 @@ def _apply_task_fields(
     fields: dict,
 ) -> None:
     """Apply task metadata to a board item's project fields."""
-    # Status
+    # Status — match case-insensitively against board options
     if task.status and "Status" in fields:
         status_field = fields["Status"]
-        option_id = status_field.options.get(task.status)
+        option_id = _match_status_option(task.status, status_field.options)
         if option_id:
             client.update_item_field_single_select(item_id, status_field.id, option_id)
         else:
@@ -216,15 +216,34 @@ def _apply_task_fields(
                 list(status_field.options.keys()),
             )
 
-    # Due date
-    if task.due_date and "Due" in fields:
-        due_field = fields["Due"]
-        client.update_item_field_date(item_id, due_field.id, task.due_date)
+    # Due date — map to "End date" field (or "Due" as fallback)
+    if task.due_date:
+        due_field = fields.get("End date") or fields.get("Due")
+        if due_field:
+            client.update_item_field_date(item_id, due_field.id, task.due_date)
 
     # Note: Assignees and Labels are properties of the underlying Issue/DraftIssue
     # content, not project fields. For draft issues created via the API, these are
     # set via the draft issue mutation. Full issue assignee/label sync would require
     # converting draft issues to real issues — left as a future enhancement.
+
+
+def _match_status_option(
+    task_status: str, options: dict[str, str]
+) -> str | None:
+    """Match a task status to a board option, case-insensitively.
+
+    The board might have "In progress" while we parse "In Progress".
+    """
+    # Exact match first
+    if task_status in options:
+        return options[task_status]
+    # Case-insensitive fallback
+    lowered = task_status.lower()
+    for name, option_id in options.items():
+        if name.lower() == lowered:
+            return option_id
+    return None
 
 
 def _log_dry_run(plan: SyncPlan) -> None:

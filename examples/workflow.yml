@@ -18,7 +18,7 @@ jobs:
         with:
           tasks-file: TASKS.md
           org: harmoniqs
-          project-number: '1'  # <-- Update to your project board number
+          project-number: '2'
           repo-label: ${{ github.event.repository.name }}
           github-token: ${{ secrets.PROJECTS_TOKEN }}
           # Dry-run on PRs, live sync on push to main

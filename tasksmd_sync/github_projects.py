@@ -259,7 +259,7 @@ class GitHubProjectClient:
 
             if fname == "Status" and "name" in fv:
                 item.status = fv["name"]
-            elif fname == "Due" and "date" in fv:
+            elif fname in ("End date", "Due") and "date" in fv:
                 try:
                     item.due_date = date.fromisoformat(fv["date"])
                 except (ValueError, TypeError):
