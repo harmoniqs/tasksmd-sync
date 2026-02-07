@@ -1,0 +1,109 @@
+name: 'Sync TASKS.md to GitHub Project'
+description: 'One-way sync from TASKS.md to a GitHub Projects v2 board'
+
+inputs:
+  tasks-file:
+    description: 'Path to the TASKS.md file'
+    required: false
+    default: 'TASKS.md'
+  org:
+    description: 'GitHub organization login'
+    required: true
+  project-number:
+    description: 'GitHub Project board number'
+    required: true
+  repo-label:
+    description: 'Label to scope archive detection to this repos items'
+    required: false
+    default: ''
+  github-token:
+    description: 'GitHub token with project scope'
+    required: true
+  dry-run:
+    description: 'If true, only log what would change'
+    required: false
+    default: 'false'
+
+outputs:
+  created:
+    description: 'Number of board items created'
+    value: ${{ steps.sync.outputs.created }}
+  updated:
+    description: 'Number of board items updated'
+    value: ${{ steps.sync.outputs.updated }}
+  archived:
+    description: 'Number of board items archived'
+    value: ${{ steps.sync.outputs.archived }}
+  unchanged:
+    description: 'Number of unchanged board items'
+    value: ${{ steps.sync.outputs.unchanged }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install tasksmd-sync
+      shell: bash
+      run: pip install "${{ github.action_path }}"
+
+    - name: Run sync
+      id: sync
+      shell: bash
+      env:
+        TASKSMD_GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        ARGS="${{ inputs.tasks-file }}"
+        ARGS="$ARGS --org ${{ inputs.org }}"
+        ARGS="$ARGS --project-number ${{ inputs.project-number }}"
+        ARGS="$ARGS --output-json /tmp/tasksmd-sync-result.json"
+        ARGS="$ARGS --verbose"
+
+        if [ -n "${{ inputs.repo-label }}" ]; then
+          ARGS="$ARGS --repo-label '${{ inputs.repo-label }}'"
+        fi
+
+        if [ "${{ inputs.dry-run }}" = "true" ]; then
+          ARGS="$ARGS --dry-run"
+        fi
+
+        eval tasksmd-sync $ARGS
+
+        # Parse results for outputs
+        if [ -f /tmp/tasksmd-sync-result.json ]; then
+          echo "created=$(python3 -c "import json; print(json.load(open('/tmp/tasksmd-sync-result.json'))['created'])")" >> "$GITHUB_OUTPUT"
+          echo "updated=$(python3 -c "import json; print(json.load(open('/tmp/tasksmd-sync-result.json'))['updated'])")" >> "$GITHUB_OUTPUT"
+          echo "archived=$(python3 -c "import json; print(json.load(open('/tmp/tasksmd-sync-result.json'))['archived'])")" >> "$GITHUB_OUTPUT"
+          echo "unchanged=$(python3 -c "import json; print(json.load(open('/tmp/tasksmd-sync-result.json'))['unchanged'])")" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Comment on PR (dry-run)
+      if: github.event_name == 'pull_request' && inputs.dry-run == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: |
+        if [ ! -f /tmp/tasksmd-sync-result.json ]; then
+          exit 0
+        fi
+
+        CREATED=$(python3 -c "import json; print(json.load(open('/tmp/tasksmd-sync-result.json'))['created'])")
+        UPDATED=$(python3 -c "import json; print(json.load(open('/tmp/tasksmd-sync-result.json'))['updated'])")
+        ARCHIVED=$(python3 -c "import json; print(json.load(open('/tmp/tasksmd-sync-result.json'))['archived'])")
+        UNCHANGED=$(python3 -c "import json; print(json.load(open('/tmp/tasksmd-sync-result.json'))['unchanged'])")
+
+        BODY="## TASKS.md Sync Preview (dry run)
+
+        | Action | Count |
+        |--------|-------|
+        | Create | $CREATED |
+        | Update | $UPDATED |
+        | Archive | $ARCHIVED |
+        | Unchanged | $UNCHANGED |
+
+        > This is a preview. Changes will be applied when merged to main."
+
+        gh pr comment "${{ github.event.pull_request.number }}" --body "$BODY"
