@@ -232,19 +232,20 @@ def execute_sync(
                 # the underlying Issue if it was closed.
                 _apply_task_fields(client, task.board_item_id, task, fields)
                 try:
-                    refreshed = client.list_items()
-                    for bi in refreshed:
-                        if bi.item_id == task.board_item_id:
-                            if bi.content_type == "Issue" and bi.content_id:
-                                client.reopen_issue(bi.content_id)
-                                logger.info(
-                                    "Reopened Issue '%s' (%s)",
-                                    task.title,
-                                    bi.content_id,
-                                )
-                            break
+                    bi = client.get_item(task.board_item_id)
+                    if bi and bi.content_type == "Issue" and bi.content_id:
+                        client.reopen_issue(bi.content_id)
+                        logger.info(
+                            "Reopened Issue '%s' (%s)",
+                            task.title,
+                            bi.content_id,
+                        )
                 except Exception as e:
-                    logger.debug("Failed to reopen Issue for '%s': %s", task.title, e)
+                    logger.warning(
+                        "Failed to reopen Issue after unarchiving '%s': %s",
+                        task.title,
+                        e,
+                    )
         except Exception as e:
             msg = f"Failed to unarchive '{task.title}': {e}"
             logger.error(msg)

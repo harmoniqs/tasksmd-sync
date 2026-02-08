@@ -1089,19 +1089,14 @@ class TestExecuteSyncUnarchive:
         """Unarchiving a task should reopen the underlying Issue."""
         # Board is empty (the item is archived), so the task triggers unarchive
         client = _mock_client(board_items=[])
-        # After unarchive, list_items returns the now-visible item
-        client.list_items.side_effect = [
-            [],  # first call during execute_sync to build plan
-            [
-                _make_board_item(
-                    "PVTI_archived",
-                    title="Revived task",
-                    status="Done",
-                    content_type="Issue",
-                    content_id="I_archived",
-                ),
-            ],  # second call after unarchive to find content_id
-        ]
+        # After unarchive, get_item returns the now-visible item
+        client.get_item.return_value = _make_board_item(
+            "PVTI_archived",
+            title="Revived task",
+            status="Done",
+            content_type="Issue",
+            content_id="I_archived",
+        )
         tf = TaskFile(
             tasks=[
                 _make_task("Revived task", board_id="PVTI_archived", status="Todo"),
@@ -1121,17 +1116,12 @@ class TestExecuteSyncUnarchive:
     def test_unarchive_draft_issue_does_not_reopen(self):
         """Unarchiving a DraftIssue should NOT call reopen_issue."""
         client = _mock_client(board_items=[])
-        client.list_items.side_effect = [
-            [],
-            [
-                _make_board_item(
-                    "PVTI_archived",
-                    title="Draft task",
-                    content_type="DraftIssue",
-                    content_id="DI_1",
-                ),
-            ],
-        ]
+        client.get_item.return_value = _make_board_item(
+            "PVTI_archived",
+            title="Draft task",
+            content_type="DraftIssue",
+            content_id="DI_1",
+        )
         tf = TaskFile(
             tasks=[
                 _make_task("Draft task", board_id="PVTI_archived", status="Todo"),
@@ -1147,17 +1137,12 @@ class TestExecuteSyncUnarchive:
     def test_unarchive_reopen_failure_does_not_crash(self):
         """If reopening the Issue fails, unarchive should still succeed."""
         client = _mock_client(board_items=[])
-        client.list_items.side_effect = [
-            [],
-            [
-                _make_board_item(
-                    "PVTI_archived",
-                    title="Task",
-                    content_type="Issue",
-                    content_id="I_1",
-                ),
-            ],
-        ]
+        client.get_item.return_value = _make_board_item(
+            "PVTI_archived",
+            title="Task",
+            content_type="Issue",
+            content_id="I_1",
+        )
         client.reopen_issue.side_effect = RuntimeError("API error")
         tf = TaskFile(
             tasks=[
@@ -1168,4 +1153,4 @@ class TestExecuteSyncUnarchive:
         result = execute_sync(client, tf)
 
         assert result.unarchived == 1
-        assert len(result.errors) == 0  # reopen failure is debug-logged, not an error
+        assert len(result.errors) == 0  # reopen failure is warning-logged, not an error
