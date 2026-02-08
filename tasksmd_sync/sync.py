@@ -240,6 +240,8 @@ def execute_sync(
                     labels=[],
                     due_date=None,
                     description=task.description,
+                    repo_owner=repo_owner,
+                    repo_name=repo_name,
                 )
                 _apply_task_fields(client, item_id, task, fields, temp_item)
             else:
@@ -439,13 +441,20 @@ def _apply_task_fields(
                     "Could not resolve GitHub user '%s' for assignee", task.assignee
                 )
         if task.labels and sorted(task.labels) != sorted(board_item.labels):
-            # We need repo owner/name to resolve label IDs — extract from org
-            label_ids = client.resolve_label_ids(client.org, "", task.labels)
-            if label_ids:
-                client.set_issue_labels(board_item.content_id, label_ids)
+            # We need repo owner/name to resolve label IDs
+            owner = board_item.repo_owner or client.org
+            name = board_item.repo_name
+            if name:
+                label_ids = client.resolve_label_ids(owner, name, task.labels)
+                if label_ids:
+                    client.set_issue_labels(board_item.content_id, label_ids)
+                else:
+                    logger.debug(
+                        "Could not resolve label IDs for %r in %s/%s", task.labels, owner, name
+                    )
             else:
                 logger.debug(
-                    "Could not resolve label IDs for %r", task.labels
+                    "Cannot resolve labels for '%s': no repository information found", task.title
                 )
 
 
