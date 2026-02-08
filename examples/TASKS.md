@@ -5,7 +5,6 @@
 ### Add support for constrained optimization
 - **Assignee:** @alice
 - **Labels:** feature, optimization
-- **Due:** 2025-07-01
 
 Add equality and inequality constraint support to the trajectory
 optimization solver. Should integrate with the existing cost function
@@ -23,7 +22,6 @@ use cases. Add at least 3 worked examples.
 <!-- id: PVTI_example123 -->
 - **Assignee:** @bob
 - **Labels:** bug, numerics
-- **Due:** 2025-04-15
 
 The RK4 integrator produces NaN values for stiff systems. Need to
 add adaptive step size control.

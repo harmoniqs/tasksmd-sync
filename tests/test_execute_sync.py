@@ -38,11 +38,6 @@ def _stub_fields():
                 "Done": "OPT_done",
             },
         ),
-        "End date": ProjectField(
-            id="F_due",
-            name="End date",
-            data_type="DATE",
-        ),
     }
 
 
