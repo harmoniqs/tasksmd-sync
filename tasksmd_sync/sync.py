@@ -31,6 +31,7 @@ class SyncResult:
     unchanged: int = 0
     errors: list[str] = field(default_factory=list)
     created_ids: dict[str, str] = field(default_factory=dict)  # title -> new_item_id
+    matched_ids: dict[str, str] = field(default_factory=dict)  # title -> matched_item_id
 
 
 def build_sync_plan(
@@ -48,15 +49,19 @@ def build_sync_plan(
     """
     plan = SyncPlan()
 
-    # Index board items by their item_id
+    # Index board items by their item_id and by title (for fallback matching)
     board_by_id: dict[str, ProjectItem] = {bi.item_id: bi for bi in board_items}
+    board_by_title: dict[str, ProjectItem] = {}
+    for bi in board_items:
+        if bi.title:
+            board_by_title.setdefault(bi.title, bi)
 
     # Track which board item IDs are accounted for by tasks
     seen_board_ids: set[str] = set()
 
     for task in task_file.tasks:
         if task.board_item_id and task.board_item_id in board_by_id:
-            # Existing task — check if it needs updating
+            # Existing task matched by ID — check if it needs updating
             seen_board_ids.add(task.board_item_id)
             board_item = board_by_id[task.board_item_id]
             if _needs_update(task, board_item):
@@ -64,16 +69,39 @@ def build_sync_plan(
             else:
                 plan.unchanged.append(task)
         elif task.board_item_id and task.board_item_id not in board_by_id:
-            # Task references a board ID that doesn't exist — treat as new
-            logger.warning(
-                "Task '%s' references board ID '%s' which was not found; will create new",
-                task.title,
-                task.board_item_id,
-            )
-            plan.create.append(task)
+            # Task references a board ID that doesn't exist — try title fallback
+            matched = _title_fallback_match(task, board_by_title, seen_board_ids)
+            if matched:
+                seen_board_ids.add(matched.item_id)
+                task.board_item_id = matched.item_id
+                logger.info(
+                    "Task '%s' had stale ID '%s'; matched by title to %s",
+                    task.title, task.board_item_id, matched.item_id,
+                )
+                plan.update.append((task, matched))
+            else:
+                logger.warning(
+                    "Task '%s' references board ID '%s' which was not found; will create new",
+                    task.title,
+                    task.board_item_id,
+                )
+                plan.create.append(task)
         else:
-            # No board ID — new task
-            plan.create.append(task)
+            # No board ID — try title fallback before creating
+            matched = _title_fallback_match(task, board_by_title, seen_board_ids)
+            if matched:
+                seen_board_ids.add(matched.item_id)
+                task.board_item_id = matched.item_id
+                logger.info(
+                    "Task '%s' matched by title to existing board item %s",
+                    task.title, matched.item_id,
+                )
+                if _needs_update(task, matched):
+                    plan.update.append((task, matched))
+                else:
+                    plan.unchanged.append(task)
+            else:
+                plan.create.append(task)
 
     # Board items not in TASKS.md should be archived
     for bi in board_items:
@@ -116,6 +144,14 @@ def execute_sync(
         len(plan.archive),
         len(plan.unchanged),
     )
+
+    # Record title-matched IDs (these were resolved during plan building)
+    for task, board_item in plan.update:
+        if task.title in [t.title for t in task_file.tasks if not t.has_board_id or t.board_item_id == board_item.item_id]:
+            result.matched_ids[task.title] = board_item.item_id
+    for task in plan.unchanged:
+        if task.board_item_id:
+            result.matched_ids[task.title] = task.board_item_id
 
     if dry_run:
         _log_dry_run(plan)
@@ -177,6 +213,21 @@ def execute_sync(
 
     result.unchanged = len(plan.unchanged)
     return result
+
+
+def _title_fallback_match(
+    task: Task,
+    board_by_title: dict[str, ProjectItem],
+    seen_board_ids: set[str],
+) -> ProjectItem | None:
+    """Try to match a task to a board item by title.
+
+    Only matches items that haven't already been claimed by another task.
+    """
+    matched = board_by_title.get(task.title)
+    if matched and matched.item_id not in seen_board_ids:
+        return matched
+    return None
 
 
 def _needs_update(task: Task, board_item: ProjectItem) -> bool:

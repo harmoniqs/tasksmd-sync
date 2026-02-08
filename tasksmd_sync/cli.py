@@ -11,6 +11,7 @@ from pathlib import Path
 from .github_projects import GitHubProjectClient
 from .parser import parse_tasks_file
 from .sync import execute_sync
+from .writeback import writeback_ids
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -57,6 +58,11 @@ def main(argv: list[str] | None = None) -> int:
         "--verbose", "-v",
         action="store_true",
         help="Enable verbose logging",
+    )
+    parser.add_argument(
+        "--writeback",
+        action="store_true",
+        help="Write board item IDs back into the TASKS.md file after sync",
     )
     parser.add_argument(
         "--output-json",
@@ -111,6 +117,18 @@ def main(argv: list[str] | None = None) -> int:
         )
     finally:
         client.close()
+
+    # Writeback IDs into TASKS.md
+    if args.writeback and not args.dry_run:
+        all_ids = {**result.matched_ids, **result.created_ids}
+        if writeback_ids(tasks_path, all_ids):
+            logging.info(
+                "Wrote %d board item ID(s) back into %s",
+                len(all_ids),
+                tasks_path,
+            )
+        else:
+            logging.info("No new IDs to write back")
 
     # Report
     logging.info(

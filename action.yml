@@ -23,6 +23,10 @@ inputs:
     description: 'If true, only log what would change'
     required: false
     default: 'false'
+  writeback:
+    description: 'If true, write board item IDs back into TASKS.md after sync'
+    required: false
+    default: 'true'
 
 outputs:
   created:
@@ -70,6 +74,10 @@ runs:
           ARGS="$ARGS --dry-run"
         fi
 
+        if [ "${{ inputs.writeback }}" = "true" ]; then
+          ARGS="$ARGS --writeback"
+        fi
+
         eval tasksmd-sync $ARGS
 
         # Parse results for outputs
@@ -79,6 +87,20 @@ runs:
           echo "archived=$(python3 -c "import json; print(json.load(open('/tmp/tasksmd-sync-result.json'))['archived'])")" >> "$GITHUB_OUTPUT"
           echo "unchanged=$(python3 -c "import json; print(json.load(open('/tmp/tasksmd-sync-result.json'))['unchanged'])")" >> "$GITHUB_OUTPUT"
         fi
+
+    - name: Commit writeback changes
+      if: inputs.writeback == 'true' && inputs.dry-run != 'true'
+      shell: bash
+      run: |
+        if git diff --quiet "${{ inputs.tasks-file }}"; then
+          echo "No writeback changes to commit"
+          exit 0
+        fi
+        git config user.name "tasksmd-sync[bot]"
+        git config user.email "tasksmd-sync[bot]@users.noreply.github.com"
+        git add "${{ inputs.tasks-file }}"
+        git commit -m "chore: write back board item IDs to ${{ inputs.tasks-file }}"
+        git push
 
     - name: Comment on PR (dry-run)
       if: github.event_name == 'pull_request' && inputs.dry-run == 'true'
