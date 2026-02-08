@@ -52,4 +52,25 @@ pytest
 
 ## Versioning
 
-This project follows [Semantic Versioning](https://semver.org/). Version tags should be created on the `main` branch.
+This project follows [Semantic Versioning](https://semver.org/).
+
+### Making a Release
+
+Releases are automated using GitHub Actions. To make a new release:
+
+1. **Prepare Release (Automated):**
+   - Go to the **Actions** tab in GitHub.
+   - Select the **Prepare Release** workflow.
+   - Click **Run workflow**, enter the new version (e.g., `1.2.3`), and run it.
+   - This will update `pyproject.toml`, commit the change, and push a new tag `v1.2.3`.
+
+2. **Release (Automated):**
+   - The push of the `v*` tag triggers the **Release** workflow.
+   - This workflow builds the package and creates a GitHub Release with the built assets.
+   - It also updates the corresponding major version tag (e.g., `v1`).
+
+Alternatively, you can manually tag a commit on `main` and push it:
+```bash
+git tag v1.2.3
+git push origin v1.2.3
+```

@@ -1,0 +1,51 @@
+name: Prepare Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g. 1.2.3)'
+        required: true
+
+jobs:
+  prepare:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update version in pyproject.toml
+        run: |
+          VERSION=${{ github.event.inputs.version }}
+          # Validate version format (x.y.z)
+          if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: Version must be in format x.y.z (e.g. 1.2.3)"
+            exit 1
+          fi
+          
+          # Update version in pyproject.toml
+          # This specifically targets the 'version = "..."' line in the [project] section
+          sed -i "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
+          
+      - name: Commit and push
+        run: |
+          VERSION=${{ github.event.inputs.version }}
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          if git diff --quiet pyproject.toml; then
+            echo "No changes to pyproject.toml"
+          else
+            git add pyproject.toml
+            git commit -m "chore: bump version to $VERSION"
+            git push origin main
+          fi
+          
+          # Tag and push tag (this will trigger release.yml)
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
