@@ -184,17 +184,17 @@ def execute_sync(
     for task, board_item in plan.update:
         try:
             _apply_task_fields(client, board_item.item_id, task, fields)
-            # Update title/body on draft issues
-            try:
-                client.update_draft_issue_body(
-                    board_item.item_id, task.title, task.description
-                )
-            except Exception:
-                # Not a draft issue — that's fine, title/body live on the Issue content
-                logger.debug(
-                    "Could not update draft issue body for '%s' (may be a real issue)",
-                    task.title,
-                )
+            # Update title/body on draft issues (requires the content node ID)
+            if board_item.content_type == "DraftIssue" and board_item.content_id:
+                try:
+                    client.update_draft_issue_body(
+                        board_item.content_id, task.title, task.description
+                    )
+                except Exception as e:
+                    logger.debug(
+                        "Failed to update draft issue body for '%s': %s",
+                        task.title, e,
+                    )
             logger.info("Updated board item '%s' (%s)", task.title, board_item.item_id)
             result.updated += 1
         except Exception as e:
@@ -237,16 +237,43 @@ def _title_fallback_match(
 def _needs_update(task: Task, board_item: ProjectItem) -> bool:
     """Check if a task's fields differ from the board item."""
     if task.title != board_item.title:
+        logger.debug(
+            "  [DIFF] '%s' title: %r != %r", task.title, task.title, board_item.title
+        )
         return True
     if task.status and task.status.lower() != (board_item.status or "").lower():
+        logger.debug(
+            "  [DIFF] '%s' status: %r != %r", task.title, task.status, board_item.status
+        )
         return True
     if task.description.strip() != (board_item.description or "").strip():
+        task_desc = task.description.strip()
+        board_desc = (board_item.description or "").strip()
+        logger.debug(
+            "  [DIFF] '%s' description: %d chars vs %d chars",
+            task.title, len(task_desc), len(board_desc),
+        )
+        if len(task_desc) < 200 and len(board_desc) < 200:
+            logger.debug("    task:  %r", task_desc)
+            logger.debug("    board: %r", board_desc)
         return True
     if task.assignee and task.assignee != board_item.assignee:
+        logger.debug(
+            "  [DIFF] '%s' assignee: %r != %r",
+            task.title, task.assignee, board_item.assignee,
+        )
         return True
     if task.due_date and task.due_date != board_item.due_date:
+        logger.debug(
+            "  [DIFF] '%s' due_date: %s != %s",
+            task.title, task.due_date, board_item.due_date,
+        )
         return True
     if task.labels and sorted(task.labels) != sorted(board_item.labels):
+        logger.debug(
+            "  [DIFF] '%s' labels: %r != %r",
+            task.title, sorted(task.labels), sorted(board_item.labels),
+        )
         return True
     return False
 

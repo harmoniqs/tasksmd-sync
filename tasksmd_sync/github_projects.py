@@ -196,7 +196,9 @@ class GitHubProjectClient:
                         }
                       }
                       content {
+                        __typename
                         ... on Issue {
+                          id
                           title
                           body
                           assignees(first: 5) {
@@ -207,6 +209,7 @@ class GitHubProjectClient:
                           }
                         }
                         ... on DraftIssue {
+                          id
                           title
                           body
                           assignees(first: 5) {
@@ -238,6 +241,8 @@ class GitHubProjectClient:
         item = ProjectItem(item_id=node["id"])
         content = node.get("content") or {}
 
+        item.content_id = content.get("id")
+        item.content_type = content.get("__typename")
         item.title = content.get("title", "")
         item.description = content.get("body", "") or ""
 
@@ -368,16 +373,19 @@ class GitHubProjectClient:
             },
         )
 
-    def update_draft_issue_body(self, item_id: str, title: str, body: str) -> None:
+    def update_draft_issue_body(
+        self, draft_issue_id: str, title: str, body: str
+    ) -> None:
         """Update a draft issue's title and body.
 
-        Note: Draft issues don't have a separate content node mutation in the
-        Projects v2 API. We use the updateProjectV2DraftIssue mutation.
+        Args:
+            draft_issue_id: The DraftIssue content node ID (DI_...), NOT the
+                ProjectV2Item ID (PVTI_...).
         """
         mutation = """
-        mutation($itemId: ID!, $title: String!, $body: String) {
+        mutation($draftIssueId: ID!, $title: String!, $body: String) {
           updateProjectV2DraftIssue(input: {
-            draftIssueId: $itemId,
+            draftIssueId: $draftIssueId,
             title: $title,
             body: $body
           }) {
@@ -385,7 +393,10 @@ class GitHubProjectClient:
           }
         }
         """
-        self._graphql(mutation, {"itemId": item_id, "title": title, "body": body})
+        self._graphql(
+            mutation,
+            {"draftIssueId": draft_issue_id, "title": title, "body": body},
+        )
 
     def archive_item(self, item_id: str) -> None:
         """Archive an item from the project board."""

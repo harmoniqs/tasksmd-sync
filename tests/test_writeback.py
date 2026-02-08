@@ -69,18 +69,30 @@ def test_writeback_multiple_ids(tmp_path: Path):
     assert "<!-- id: PVTI_new2 -->" in content
 
 
-def test_writeback_skips_existing_id(tmp_path: Path):
+def test_writeback_replaces_stale_id(tmp_path: Path):
     f = tmp_path / "TASKS.md"
     f.write_text(SAMPLE)
 
-    # Try to writeback an ID for a task that already has one
-    modified = writeback_ids(f, {"Task with existing ID": "PVTI_different"})
+    # Writeback a different ID for a task that already has one
+    modified = writeback_ids(f, {"Task with existing ID": "PVTI_replacement"})
+    assert modified is True
+
+    content = f.read_text()
+    # Old ID should be gone, new one present
+    assert "<!-- id: PVTI_existing -->" not in content
+    assert "<!-- id: PVTI_replacement -->" in content
+
+
+def test_writeback_skips_when_id_already_correct(tmp_path: Path):
+    f = tmp_path / "TASKS.md"
+    f.write_text(SAMPLE)
+
+    # Writeback the same ID that already exists
+    modified = writeback_ids(f, {"Task with existing ID": "PVTI_existing"})
     assert modified is False
 
     content = f.read_text()
-    # Original ID should be preserved
     assert "<!-- id: PVTI_existing -->" in content
-    assert "PVTI_different" not in content
 
 
 def test_writeback_no_changes_when_empty_map(tmp_path: Path):
