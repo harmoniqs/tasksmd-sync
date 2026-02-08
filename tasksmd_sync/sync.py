@@ -255,7 +255,6 @@ def execute_sync(
                     status=task.status or "",
                     assignee=None,
                     labels=[],
-                    due_date=None,
                     description=task.description,
                     repo_owner=repo_owner,
                     repo_name=repo_name,
@@ -296,7 +295,6 @@ def execute_sync(
                     status=board_item.status,
                     assignee=None,
                     labels=[],
-                    due_date=None,
                     description=task.description,
                 )
                 task.board_item_id = new_item_id
