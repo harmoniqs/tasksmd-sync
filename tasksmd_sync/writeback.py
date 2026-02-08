@@ -37,6 +37,7 @@ def remove_done_tasks(tasks_path: str | Path) -> bool:
         m = RE_STATUS_HEADING.match(stripped)
         if m:
             from .parser import _normalize_status
+
             current_status = _normalize_status(m.group(1).strip())
             new_lines.append(line)
             i += 1
@@ -52,7 +53,9 @@ def remove_done_tasks(tasks_path: str | Path) -> bool:
                 # Skip lines until next heading or end of file
                 while i < len(lines):
                     next_stripped = lines[i].rstrip("\n").rstrip("\r")
-                    if RE_STATUS_HEADING.match(next_stripped) or RE_TASK_HEADING.match(next_stripped):
+                    if RE_STATUS_HEADING.match(next_stripped) or RE_TASK_HEADING.match(
+                        next_stripped
+                    ):
                         break
                     i += 1
                 continue
@@ -154,7 +157,9 @@ def writeback_ids(
                     modified = True
                     logger.debug(
                         "[WRITEBACK] '%s' replaced stale ID %s -> %s",
-                        title, existing_id, new_id,
+                        title,
+                        existing_id,
+                        new_id,
                     )
                 else:
                     # No ID yet — inject one
@@ -162,9 +167,7 @@ def writeback_ids(
                     # Put the blank lines back after the injected ID
                     new_lines.extend(blank_buffer)
                     modified = True
-                    logger.debug(
-                        "[WRITEBACK] '%s' injected new ID %s", title, new_id
-                    )
+                    logger.debug("[WRITEBACK] '%s' injected new ID %s", title, new_id)
             else:
                 # Not in id_map — preserve everything as-is
                 new_lines.extend(blank_buffer)

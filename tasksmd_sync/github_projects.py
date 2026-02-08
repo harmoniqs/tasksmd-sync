@@ -67,7 +67,9 @@ class GitHubProjectClient:
         resp.raise_for_status()
         body = resp.json()
         if "errors" in body:
-            raise RuntimeError(f"GraphQL errors: {json.dumps(body['errors'], indent=2)}")
+            raise RuntimeError(
+                f"GraphQL errors: {json.dumps(body['errors'], indent=2)}"
+            )
         return body.get("data", {})
 
     # ------------------------------------------------------------------
@@ -310,7 +312,9 @@ class GitHubProjectClient:
         )
         return data["addProjectV2DraftIssue"]["projectItem"]["id"]
 
-    def create_issue(self, repo_owner: str, repo_name: str, title: str, body: str = "") -> str:
+    def create_issue(
+        self, repo_owner: str, repo_name: str, title: str, body: str = ""
+    ) -> str:
         """Create a real GitHub Issue in the given repository.
 
         Returns the Issue node ID (I_...).
@@ -354,7 +358,9 @@ class GitHubProjectClient:
           }
         }
         """
-        data = self._graphql(mutation, {"projectId": project_id, "contentId": content_id})
+        data = self._graphql(
+            mutation, {"projectId": project_id, "contentId": content_id}
+        )
         return data["addProjectV2ItemById"]["item"]["id"]
 
     def update_item_field_text(self, item_id: str, field_id: str, value: str) -> None:
@@ -534,7 +540,9 @@ class GitHubProjectClient:
         """
         self._graphql(mutation, {"issueId": issue_id, "labelIds": label_ids})
 
-    def resolve_label_ids(self, repo_owner: str, repo_name: str, label_names: list[str]) -> list[str]:
+    def resolve_label_ids(
+        self, repo_owner: str, repo_name: str, label_names: list[str]
+    ) -> list[str]:
         """Resolve label names to node IDs for a given repository.
 
         Args:
@@ -585,9 +593,7 @@ class GitHubProjectClient:
           }
         }
         """
-        self._graphql(
-            mutation, {"projectId": project_id, "itemId": item_id}
-        )
+        self._graphql(mutation, {"projectId": project_id, "itemId": item_id})
 
     def unarchive_item(self, item_id: str) -> None:
         """Unarchive an item from the project board."""
@@ -602,9 +608,7 @@ class GitHubProjectClient:
           }
         }
         """
-        self._graphql(
-            mutation, {"projectId": project_id, "itemId": item_id}
-        )
+        self._graphql(mutation, {"projectId": project_id, "itemId": item_id})
 
     def close(self) -> None:
         """Close the HTTP client."""

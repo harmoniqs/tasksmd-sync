@@ -34,7 +34,9 @@ class SyncResult:
     unchanged: int = 0
     errors: list[str] = field(default_factory=list)
     created_ids: dict[str, str] = field(default_factory=dict)  # title -> new_item_id
-    matched_ids: dict[str, str] = field(default_factory=dict)  # title -> matched_item_id
+    matched_ids: dict[str, str] = field(
+        default_factory=dict
+    )  # title -> matched_item_id
 
 
 def build_sync_plan(
@@ -84,7 +86,9 @@ def build_sync_plan(
                 plan.title_matched.add(task.title)
                 logger.debug(
                     "Task '%s' had stale ID '%s'; matched by title to %s",
-                    task.title, stale_id, matched.item_id,
+                    task.title,
+                    stale_id,
+                    matched.item_id,
                 )
                 if _needs_update(task, matched):
                     plan.update.append((task, matched))
@@ -107,7 +111,8 @@ def build_sync_plan(
                 plan.title_matched.add(task.title)
                 logger.debug(
                     "Task '%s' matched by title to existing board item %s",
-                    task.title, matched.item_id,
+                    task.title,
+                    matched.item_id,
                 )
                 if _needs_update(task, matched):
                     plan.update.append((task, matched))
@@ -159,7 +164,11 @@ def execute_sync(
     logger.info("Found %d items on the board", len(board_items))
 
     plan = build_sync_plan(
-        task_file, board_items, repo_owner=repo_owner, repo_name=repo_name, repo_label=repo_label
+        task_file,
+        board_items,
+        repo_owner=repo_owner,
+        repo_name=repo_name,
+        repo_label=repo_label,
     )
 
     # If repo is provided, ensure DraftIssues are converted even if otherwise unchanged
@@ -185,7 +194,11 @@ def execute_sync(
 
     # Record title-matched IDs (these were resolved during plan building)
     for task, board_item in plan.update:
-        if task.title in [t.title for t in task_file.tasks if not t.has_board_id or t.board_item_id == board_item.item_id]:
+        if task.title in [
+            t.title
+            for t in task_file.tasks
+            if not t.has_board_id or t.board_item_id == board_item.item_id
+        ]:
             result.matched_ids[task.title] = board_item.item_id
     for task in plan.unchanged:
         if task.board_item_id:
@@ -227,9 +240,13 @@ def execute_sync(
         try:
             # If repo is provided, create a real Issue then add it to the project; otherwise create DraftIssue
             if repo_owner and repo_name:
-                issue_id = client.create_issue(repo_owner, repo_name, task.title, task.description)
+                issue_id = client.create_issue(
+                    repo_owner, repo_name, task.title, task.description
+                )
                 item_id = client.add_item_to_project(issue_id)
-                logger.info("Created Issue '%s' -> %s (item %s)", task.title, issue_id, item_id)
+                logger.info(
+                    "Created Issue '%s' -> %s (item %s)", task.title, issue_id, item_id
+                )
                 temp_item = ProjectItem(
                     item_id=item_id,
                     content_id=issue_id,
@@ -261,12 +278,16 @@ def execute_sync(
             converted = False
             if repo_owner and repo_name and board_item.content_type == "DraftIssue":
                 # Convert DraftIssue -> Issue when repo provided
-                issue_id = client.create_issue(repo_owner, repo_name, task.title, task.description)
+                issue_id = client.create_issue(
+                    repo_owner, repo_name, task.title, task.description
+                )
                 new_item_id = client.add_item_to_project(issue_id)
                 try:
                     client.archive_item(board_item.item_id)
                 except Exception as e:
-                    logger.debug("Failed to archive old DraftIssue %s: %s", board_item.item_id, e)
+                    logger.debug(
+                        "Failed to archive old DraftIssue %s: %s", board_item.item_id, e
+                    )
                 board_item = ProjectItem(
                     item_id=new_item_id,
                     content_id=issue_id,
@@ -279,7 +300,9 @@ def execute_sync(
                     description=task.description,
                 )
                 task.board_item_id = new_item_id
-                result.created_ids[task.title] = new_item_id  # ensure writeback uses the new item ID
+                result.created_ids[task.title] = (
+                    new_item_id  # ensure writeback uses the new item ID
+                )
                 converted = True
 
             _apply_task_fields(client, board_item.item_id, task, fields, board_item)
@@ -297,7 +320,9 @@ def execute_sync(
                 except Exception as e:
                     logger.debug(
                         "Failed to update %s body for '%s': %s",
-                        board_item.content_type, task.title, e,
+                        board_item.content_type,
+                        task.title,
+                        e,
                     )
             logger.info(
                 "Updated board item '%s' (%s)%s",
@@ -360,7 +385,9 @@ def _needs_update(task: Task, board_item: ProjectItem) -> bool:
         board_desc = (board_item.description or "").strip()
         logger.debug(
             "  [DIFF] '%s' description: %d chars vs %d chars",
-            task.title, len(task_desc), len(board_desc),
+            task.title,
+            len(task_desc),
+            len(board_desc),
         )
         if len(task_desc) < 200 and len(board_desc) < 200:
             logger.debug("    task:  %r", task_desc)
@@ -375,13 +402,17 @@ def _needs_update(task: Task, board_item: ProjectItem) -> bool:
         if task.assignee and task.assignee != board_item.assignee:
             logger.debug(
                 "  [DIFF] '%s' assignee: %r != %r",
-                task.title, task.assignee, board_item.assignee,
+                task.title,
+                task.assignee,
+                board_item.assignee,
             )
             return True
         if task.labels and sorted(task.labels) != sorted(board_item.labels):
             logger.debug(
                 "  [DIFF] '%s' labels: %r != %r",
-                task.title, sorted(task.labels), sorted(board_item.labels),
+                task.title,
+                sorted(task.labels),
+                sorted(board_item.labels),
             )
             return True
     return False
@@ -437,17 +468,19 @@ def _apply_task_fields(
                     client.set_issue_labels(board_item.content_id, label_ids)
                 else:
                     logger.debug(
-                        "Could not resolve label IDs for %r in %s/%s", task.labels, owner, name
+                        "Could not resolve label IDs for %r in %s/%s",
+                        task.labels,
+                        owner,
+                        name,
                     )
             else:
                 logger.debug(
-                    "Cannot resolve labels for '%s': no repository information found", task.title
+                    "Cannot resolve labels for '%s': no repository information found",
+                    task.title,
                 )
 
 
-def _match_status_option(
-    task_status: str, options: dict[str, str]
-) -> str | None:
+def _match_status_option(task_status: str, options: dict[str, str]) -> str | None:
     """Match a task status to a board option, case-insensitively.
 
     The board might have "In progress" while we parse "In Progress".
@@ -474,7 +507,9 @@ def _log_dry_run(plan: SyncPlan) -> None:
             logger.debug("  [TITLE MATCH] '%s'", title)
 
     for task in plan.create:
-        logger.info("[DRY RUN] Would create: '%s' (status: %s)", task.title, task.status)
+        logger.info(
+            "[DRY RUN] Would create: '%s' (status: %s)", task.title, task.status
+        )
     for task, bi in plan.update:
         match_note = " [title-matched]" if task.title in plan.title_matched else ""
         logger.info(
@@ -484,26 +519,27 @@ def _log_dry_run(plan: SyncPlan) -> None:
         match_note = " [title-matched]" if task.title in plan.title_matched else ""
         logger.debug(
             "[DRY RUN] Unchanged: '%s' (%s)%s",
-            task.title, task.board_item_id or "?", match_note,
+            task.title,
+            task.board_item_id or "?",
+            match_note,
         )
     for task in plan.unarchive:
         logger.info(
             "[DRY RUN] Would unarchive: '%s' (%s)", task.title, task.board_item_id
         )
     for bi in plan.archive:
-        logger.info(
-            "[DRY RUN] Would archive: '%s' (%s)", bi.title, bi.item_id
-        )
+        logger.info("[DRY RUN] Would archive: '%s' (%s)", bi.title, bi.item_id)
 
     # Writeback preview
-    writeback_titles = [
-        t.title for t in plan.create
-    ] + [
-        t.title for t in plan.unarchive
-    ] + [
-        t.title for t in (plan.unchanged + [pair[0] for pair in plan.update])
-        if t.title in plan.title_matched
-    ]
+    writeback_titles = (
+        [t.title for t in plan.create]
+        + [t.title for t in plan.unarchive]
+        + [
+            t.title
+            for t in (plan.unchanged + [pair[0] for pair in plan.update])
+            if t.title in plan.title_matched
+        ]
+    )
     if writeback_titles:
         logger.info(
             "[DRY RUN] Would write back %d ID(s) to TASKS.md:",

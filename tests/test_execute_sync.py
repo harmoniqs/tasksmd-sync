@@ -6,7 +6,6 @@ for both DraftIssue and real Issue content types.
 
 from __future__ import annotations
 
-from datetime import date
 from unittest.mock import MagicMock
 
 from tasksmd_sync.github_projects import GitHubProjectClient, ProjectField, ProjectItem
@@ -16,6 +15,7 @@ from tasksmd_sync.sync import _apply_task_fields, _needs_update, execute_sync
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_task(title, status="Todo", board_id=None, **kwargs):
     return Task(title=title, status=status, board_item_id=board_id, **kwargs)
@@ -39,7 +39,9 @@ def _stub_fields():
             },
         ),
         "End date": ProjectField(
-            id="F_due", name="End date", data_type="DATE",
+            id="F_due",
+            name="End date",
+            data_type="DATE",
         ),
     }
 
@@ -83,9 +85,11 @@ class TestExecuteSyncDraftIssue:
     def test_create_does_not_call_assignee_or_label_mutations(self):
         """Created draft issues should NOT attempt assignee/label sync."""
         client = _mock_client()
-        tf = TaskFile(tasks=[
-            _make_task("Task", assignee="alice", labels=["bug"]),
-        ])
+        tf = TaskFile(
+            tasks=[
+                _make_task("Task", assignee="alice", labels=["bug"]),
+            ]
+        )
 
         execute_sync(client, tf)
 
@@ -107,36 +111,46 @@ class TestExecuteSyncDraftIssue:
         """Updating a DraftIssue should call update_draft_issue_body."""
         board = [
             _make_board_item(
-                "PVTI_1", title="Old title", status="Todo",
-                content_type="DraftIssue", content_id="DI_1",
+                "PVTI_1",
+                title="Old title",
+                status="Todo",
+                content_type="DraftIssue",
+                content_id="DI_1",
             ),
         ]
         client = _mock_client(board)
-        tf = TaskFile(tasks=[
-            _make_task("New title", board_id="PVTI_1", status="In Progress"),
-        ])
+        tf = TaskFile(
+            tasks=[
+                _make_task("New title", board_id="PVTI_1", status="In Progress"),
+            ]
+        )
 
         result = execute_sync(client, tf)
 
         assert result.updated == 1
-        client.update_draft_issue_body.assert_called_once_with(
-            "DI_1", "New title", ""
-        )
+        client.update_draft_issue_body.assert_called_once_with("DI_1", "New title", "")
         client.update_issue.assert_not_called()
 
     def test_update_draft_does_not_call_assignee_mutations(self):
         """Updating a DraftIssue should NOT attempt assignee sync."""
         board = [
             _make_board_item(
-                "PVTI_1", title="Task", status="Todo",
-                content_type="DraftIssue", content_id="DI_1",
+                "PVTI_1",
+                title="Task",
+                status="Todo",
+                content_type="DraftIssue",
+                content_id="DI_1",
                 description="old",
             ),
         ]
         client = _mock_client(board)
-        tf = TaskFile(tasks=[
-            _make_task("Task", board_id="PVTI_1", description="new", assignee="alice"),
-        ])
+        tf = TaskFile(
+            tasks=[
+                _make_task(
+                    "Task", board_id="PVTI_1", description="new", assignee="alice"
+                ),
+            ]
+        )
 
         execute_sync(client, tf)
 
@@ -147,15 +161,22 @@ class TestExecuteSyncDraftIssue:
         """Updating a DraftIssue should NOT attempt label sync."""
         board = [
             _make_board_item(
-                "PVTI_1", title="Task", status="Todo",
-                content_type="DraftIssue", content_id="DI_1",
+                "PVTI_1",
+                title="Task",
+                status="Todo",
+                content_type="DraftIssue",
+                content_id="DI_1",
                 description="old",
             ),
         ]
         client = _mock_client(board)
-        tf = TaskFile(tasks=[
-            _make_task("Task", board_id="PVTI_1", description="new", labels=["bug"]),
-        ])
+        tf = TaskFile(
+            tasks=[
+                _make_task(
+                    "Task", board_id="PVTI_1", description="new", labels=["bug"]
+                ),
+            ]
+        )
 
         execute_sync(client, tf)
 
@@ -166,14 +187,22 @@ class TestExecuteSyncDraftIssue:
         """An unchanged DraftIssue should not produce any write API calls."""
         board = [
             _make_board_item(
-                "PVTI_1", title="Task", status="Todo", description="desc",
-                content_type="DraftIssue", content_id="DI_1",
+                "PVTI_1",
+                title="Task",
+                status="Todo",
+                description="desc",
+                content_type="DraftIssue",
+                content_id="DI_1",
             ),
         ]
         client = _mock_client(board)
-        tf = TaskFile(tasks=[
-            _make_task("Task", board_id="PVTI_1", status="Todo", description="desc"),
-        ])
+        tf = TaskFile(
+            tasks=[
+                _make_task(
+                    "Task", board_id="PVTI_1", status="Todo", description="desc"
+                ),
+            ]
+        )
 
         result = execute_sync(client, tf)
 
@@ -211,18 +240,27 @@ class TestExecuteSyncDraftIssue:
         should be considered unchanged (idempotent)."""
         board = [
             _make_board_item(
-                "PVTI_1", title="Task", status="Todo",
-                content_type="DraftIssue", content_id="DI_1",
-                assignee=None, labels=[],
+                "PVTI_1",
+                title="Task",
+                status="Todo",
+                content_type="DraftIssue",
+                content_id="DI_1",
+                assignee=None,
+                labels=[],
             ),
         ]
         client = _mock_client(board)
-        tf = TaskFile(tasks=[
-            _make_task(
-                "Task", board_id="PVTI_1", status="Todo",
-                assignee="alice", labels=["bug", "docs"],
-            ),
-        ])
+        tf = TaskFile(
+            tasks=[
+                _make_task(
+                    "Task",
+                    board_id="PVTI_1",
+                    status="Todo",
+                    assignee="alice",
+                    labels=["bug", "docs"],
+                ),
+            ]
+        )
 
         result = execute_sync(client, tf)
 
@@ -241,7 +279,9 @@ class TestExecuteSyncIssue:
     def test_create_issue_when_repo_provided(self):
         """New tasks should create real Issues when repo_owner/repo_name are given."""
         client = _mock_client()
-        tf = TaskFile(tasks=[_make_task("New issue task", status="Todo", assignee="alice")])
+        tf = TaskFile(
+            tasks=[_make_task("New issue task", status="Todo", assignee="alice")]
+        )
 
         result = execute_sync(
             client,
@@ -272,7 +312,9 @@ class TestExecuteSyncIssue:
             ),
         ]
         client = _mock_client(board)
-        tf = TaskFile(tasks=[_make_task("Old draft", board_id="PVTI_1", status="In Progress")])
+        tf = TaskFile(
+            tasks=[_make_task("Old draft", board_id="PVTI_1", status="In Progress")]
+        )
 
         result = execute_sync(
             client,
@@ -304,7 +346,11 @@ class TestExecuteSyncIssue:
             ),
         ]
         client = _mock_client(board)
-        tf = TaskFile(tasks=[_make_task("Task", board_id="PVTI_1", status="Todo", description="desc")])
+        tf = TaskFile(
+            tasks=[
+                _make_task("Task", board_id="PVTI_1", status="Todo", description="desc")
+            ]
+        )
 
         result = execute_sync(
             client,
@@ -314,7 +360,9 @@ class TestExecuteSyncIssue:
         )
 
         # Even though the fields match, the DraftIssue is converted
-        client.create_issue.assert_called_once_with("harmoniqs", "tasksmd-sync", "Task", "desc")
+        client.create_issue.assert_called_once_with(
+            "harmoniqs", "tasksmd-sync", "Task", "desc"
+        )
         client.add_item_to_project.assert_called_once_with("I_new")
         client.archive_item.assert_any_call("PVTI_1")
         client.update_issue.assert_called_once_with("I_new", "Task", "desc")
@@ -326,14 +374,19 @@ class TestExecuteSyncIssue:
         """Updating a real Issue should call update_issue (not update_draft_issue_body)."""
         board = [
             _make_board_item(
-                "PVTI_1", title="Old title", status="Todo",
-                content_type="Issue", content_id="I_1",
+                "PVTI_1",
+                title="Old title",
+                status="Todo",
+                content_type="Issue",
+                content_id="I_1",
             ),
         ]
         client = _mock_client(board)
-        tf = TaskFile(tasks=[
-            _make_task("New title", board_id="PVTI_1", status="In Progress"),
-        ])
+        tf = TaskFile(
+            tasks=[
+                _make_task("New title", board_id="PVTI_1", status="In Progress"),
+            ]
+        )
 
         result = execute_sync(client, tf)
 
@@ -345,15 +398,20 @@ class TestExecuteSyncIssue:
         """Assignee changes on a real Issue should call resolve + set."""
         board = [
             _make_board_item(
-                "PVTI_1", title="Task", status="Todo",
-                content_type="Issue", content_id="I_1",
+                "PVTI_1",
+                title="Task",
+                status="Todo",
+                content_type="Issue",
+                content_id="I_1",
                 assignee=None,
             ),
         ]
         client = _mock_client(board)
-        tf = TaskFile(tasks=[
-            _make_task("Task", board_id="PVTI_1", assignee="alice"),
-        ])
+        tf = TaskFile(
+            tasks=[
+                _make_task("Task", board_id="PVTI_1", assignee="alice"),
+            ]
+        )
 
         result = execute_sync(client, tf)
 
@@ -365,37 +423,54 @@ class TestExecuteSyncIssue:
         """Label changes on a real Issue should call resolve + set."""
         board = [
             _make_board_item(
-                "PVTI_1", title="Task", status="Todo",
-                content_type="Issue", content_id="I_1",
-                labels=[], repo_name="tasksmd-sync",
+                "PVTI_1",
+                title="Task",
+                status="Todo",
+                content_type="Issue",
+                content_id="I_1",
+                labels=[],
+                repo_name="tasksmd-sync",
             ),
         ]
         client = _mock_client(board)
-        tf = TaskFile(tasks=[
-            _make_task("Task", board_id="PVTI_1", labels=["bug", "docs"]),
-        ])
+        tf = TaskFile(
+            tasks=[
+                _make_task("Task", board_id="PVTI_1", labels=["bug", "docs"]),
+            ]
+        )
 
         result = execute_sync(client, tf)
 
         assert result.updated == 1
-        client.resolve_label_ids.assert_called_once_with("harmoniqs", "tasksmd-sync", ["bug", "docs"])
+        client.resolve_label_ids.assert_called_once_with(
+            "harmoniqs", "tasksmd-sync", ["bug", "docs"]
+        )
         client.set_issue_labels.assert_called_once_with("I_1", ["LA_bug", "LA_docs"])
 
     def test_update_issue_no_assignee_call_when_matching(self):
         """No assignee mutation when the assignee already matches."""
         board = [
             _make_board_item(
-                "PVTI_1", title="Task", status="Todo",
-                content_type="Issue", content_id="I_1",
-                assignee="alice", description="old",
+                "PVTI_1",
+                title="Task",
+                status="Todo",
+                content_type="Issue",
+                content_id="I_1",
+                assignee="alice",
+                description="old",
             ),
         ]
         client = _mock_client(board)
-        tf = TaskFile(tasks=[
-            _make_task(
-                "Task", board_id="PVTI_1", assignee="alice", description="new",
-            ),
-        ])
+        tf = TaskFile(
+            tasks=[
+                _make_task(
+                    "Task",
+                    board_id="PVTI_1",
+                    assignee="alice",
+                    description="new",
+                ),
+            ]
+        )
 
         execute_sync(client, tf)
 
@@ -407,17 +482,26 @@ class TestExecuteSyncIssue:
         """No label mutation when labels already match."""
         board = [
             _make_board_item(
-                "PVTI_1", title="Task", status="Todo",
-                content_type="Issue", content_id="I_1",
-                labels=["bug", "docs"], description="old",
+                "PVTI_1",
+                title="Task",
+                status="Todo",
+                content_type="Issue",
+                content_id="I_1",
+                labels=["bug", "docs"],
+                description="old",
             ),
         ]
         client = _mock_client(board)
-        tf = TaskFile(tasks=[
-            _make_task(
-                "Task", board_id="PVTI_1", labels=["docs", "bug"], description="new",
-            ),
-        ])
+        tf = TaskFile(
+            tasks=[
+                _make_task(
+                    "Task",
+                    board_id="PVTI_1",
+                    labels=["docs", "bug"],
+                    description="new",
+                ),
+            ]
+        )
 
         execute_sync(client, tf)
 
@@ -428,18 +512,29 @@ class TestExecuteSyncIssue:
         """A real Issue with all fields matching should be unchanged."""
         board = [
             _make_board_item(
-                "PVTI_1", title="Task", status="Done",
-                content_type="Issue", content_id="I_1",
-                assignee="alice", labels=["bug"], description="desc",
+                "PVTI_1",
+                title="Task",
+                status="Done",
+                content_type="Issue",
+                content_id="I_1",
+                assignee="alice",
+                labels=["bug"],
+                description="desc",
             ),
         ]
         client = _mock_client(board)
-        tf = TaskFile(tasks=[
-            _make_task(
-                "Task", board_id="PVTI_1", status="Done",
-                assignee="alice", labels=["bug"], description="desc",
-            ),
-        ])
+        tf = TaskFile(
+            tasks=[
+                _make_task(
+                    "Task",
+                    board_id="PVTI_1",
+                    status="Done",
+                    assignee="alice",
+                    labels=["bug"],
+                    description="desc",
+                ),
+            ]
+        )
 
         result = execute_sync(client, tf)
 
@@ -453,16 +548,21 @@ class TestExecuteSyncIssue:
         """If resolve_user_id returns None, assignee sync should be skipped."""
         board = [
             _make_board_item(
-                "PVTI_1", title="Task", status="Todo",
-                content_type="Issue", content_id="I_1",
+                "PVTI_1",
+                title="Task",
+                status="Todo",
+                content_type="Issue",
+                content_id="I_1",
                 assignee=None,
             ),
         ]
         client = _mock_client(board)
         client.resolve_user_id.return_value = None
-        tf = TaskFile(tasks=[
-            _make_task("Task", board_id="PVTI_1", assignee="ghost_user"),
-        ])
+        tf = TaskFile(
+            tasks=[
+                _make_task("Task", board_id="PVTI_1", assignee="ghost_user"),
+            ]
+        )
 
         result = execute_sync(client, tf)
 
@@ -474,16 +574,21 @@ class TestExecuteSyncIssue:
         """If resolve_label_ids returns [], label sync should be skipped."""
         board = [
             _make_board_item(
-                "PVTI_1", title="Task", status="Todo",
-                content_type="Issue", content_id="I_1",
+                "PVTI_1",
+                title="Task",
+                status="Todo",
+                content_type="Issue",
+                content_id="I_1",
                 labels=[],
             ),
         ]
         client = _mock_client(board)
         client.resolve_label_ids.return_value = []
-        tf = TaskFile(tasks=[
-            _make_task("Task", board_id="PVTI_1", labels=["nonexistent"]),
-        ])
+        tf = TaskFile(
+            tasks=[
+                _make_task("Task", board_id="PVTI_1", labels=["nonexistent"]),
+            ]
+        )
 
         result = execute_sync(client, tf)
 
@@ -494,16 +599,21 @@ class TestExecuteSyncIssue:
         """Errors during update should be captured in result.errors."""
         board = [
             _make_board_item(
-                "PVTI_1", title="Task", status="Todo",
-                content_type="Issue", content_id="I_1",
+                "PVTI_1",
+                title="Task",
+                status="Todo",
+                content_type="Issue",
+                content_id="I_1",
                 description="old",
             ),
         ]
         client = _mock_client(board)
         client.update_item_field_single_select.side_effect = RuntimeError("API boom")
-        tf = TaskFile(tasks=[
-            _make_task("Task", board_id="PVTI_1", description="new"),
-        ])
+        tf = TaskFile(
+            tasks=[
+                _make_task("Task", board_id="PVTI_1", description="new"),
+            ]
+        )
 
         result = execute_sync(client, tf)
 
@@ -524,23 +634,31 @@ class TestExecuteSyncMixed:
         """A sync with both DraftIssue and Issue items should route correctly."""
         board = [
             _make_board_item(
-                "PVTI_1", title="Draft task", status="Todo",
-                content_type="DraftIssue", content_id="DI_1",
+                "PVTI_1",
+                title="Draft task",
+                status="Todo",
+                content_type="DraftIssue",
+                content_id="DI_1",
                 description="old",
             ),
             _make_board_item(
-                "PVTI_2", title="Real task", status="Todo",
-                content_type="Issue", content_id="I_1",
+                "PVTI_2",
+                title="Real task",
+                status="Todo",
+                content_type="Issue",
+                content_id="I_1",
                 assignee=None,
             ),
             _make_board_item("PVTI_3", title="To archive"),
         ]
         client = _mock_client(board)
-        tf = TaskFile(tasks=[
-            _make_task("Draft task", board_id="PVTI_1", description="new"),
-            _make_task("Real task", board_id="PVTI_2", assignee="alice"),
-            _make_task("Brand new task"),
-        ])
+        tf = TaskFile(
+            tasks=[
+                _make_task("Draft task", board_id="PVTI_1", description="new"),
+                _make_task("Real task", board_id="PVTI_2", assignee="alice"),
+                _make_task("Brand new task"),
+            ]
+        )
 
         result = execute_sync(client, tf)
 
@@ -554,9 +672,7 @@ class TestExecuteSyncMixed:
         )
 
         # Issue path
-        client.update_issue.assert_called_once_with(
-            "I_1", "Real task", ""
-        )
+        client.update_issue.assert_called_once_with("I_1", "Real task", "")
         client.resolve_user_id.assert_called_once_with("alice")
         client.set_issue_assignees.assert_called_once()
 
@@ -568,16 +684,21 @@ class TestExecuteSyncMixed:
         """dry_run=True should report counts but make no write calls."""
         board = [
             _make_board_item(
-                "PVTI_1", title="Task", status="Todo",
-                content_type="Issue", content_id="I_1",
+                "PVTI_1",
+                title="Task",
+                status="Todo",
+                content_type="Issue",
+                content_id="I_1",
                 description="old",
             ),
         ]
         client = _mock_client(board)
-        tf = TaskFile(tasks=[
-            _make_task("Task", board_id="PVTI_1", description="new"),
-            _make_task("New task"),
-        ])
+        tf = TaskFile(
+            tasks=[
+                _make_task("Task", board_id="PVTI_1", description="new"),
+                _make_task("New task"),
+            ]
+        )
 
         result = execute_sync(client, tf, dry_run=True)
 
@@ -647,7 +768,9 @@ class TestNeedsUpdate:
     def test_assignee_ignored_for_pull_request(self):
         """PullRequest content type should also skip assignee comparison."""
         task = _make_task("T", assignee="alice")
-        board = _make_board_item("X", title="T", assignee=None, content_type="PullRequest")
+        board = _make_board_item(
+            "X", title="T", assignee=None, content_type="PullRequest"
+        )
         assert _needs_update(task, board) is False
 
     def test_labels_ignored_when_content_type_none(self):
@@ -671,7 +794,9 @@ class TestNeedsUpdate:
     def test_label_order_irrelevant(self):
         """Labels should be compared as sets (order doesn't matter)."""
         task = _make_task("T", labels=["docs", "bug"])
-        board = _make_board_item("X", title="T", content_type="Issue", labels=["bug", "docs"])
+        board = _make_board_item(
+            "X", title="T", content_type="Issue", labels=["bug", "docs"]
+        )
         assert _needs_update(task, board) is False
 
 
@@ -723,8 +848,12 @@ class TestApplyTaskFields:
         fields = _stub_fields()
         task = _make_task("T", assignee="alice", labels=["bug"])
         bi = _make_board_item(
-            "PVTI_1", title="T", content_type="DraftIssue", content_id="DI_1",
-            assignee=None, labels=[],
+            "PVTI_1",
+            title="T",
+            content_type="DraftIssue",
+            content_id="DI_1",
+            assignee=None,
+            labels=[],
         )
 
         _apply_task_fields(client, "PVTI_1", task, fields, board_item=bi)
@@ -738,7 +867,10 @@ class TestApplyTaskFields:
         fields = _stub_fields()
         task = _make_task("T", assignee="alice")
         bi = _make_board_item(
-            "PVTI_1", title="T", content_type="Issue", content_id="I_1",
+            "PVTI_1",
+            title="T",
+            content_type="Issue",
+            content_id="I_1",
             assignee=None,
         )
 
@@ -753,13 +885,19 @@ class TestApplyTaskFields:
         fields = _stub_fields()
         task = _make_task("T", labels=["bug", "docs"])
         bi = _make_board_item(
-            "PVTI_1", title="T", content_type="Issue", content_id="I_1",
-            labels=[], repo_name="tasksmd-sync",
+            "PVTI_1",
+            title="T",
+            content_type="Issue",
+            content_id="I_1",
+            labels=[],
+            repo_name="tasksmd-sync",
         )
 
         _apply_task_fields(client, "PVTI_1", task, fields, board_item=bi)
 
-        client.resolve_label_ids.assert_called_once_with("harmoniqs", "tasksmd-sync", ["bug", "docs"])
+        client.resolve_label_ids.assert_called_once_with(
+            "harmoniqs", "tasksmd-sync", ["bug", "docs"]
+        )
         client.set_issue_labels.assert_called_once_with("I_1", ["LA_bug", "LA_docs"])
 
     def test_issue_skips_assignee_when_already_matching(self):
@@ -768,7 +906,10 @@ class TestApplyTaskFields:
         fields = _stub_fields()
         task = _make_task("T", assignee="alice")
         bi = _make_board_item(
-            "PVTI_1", title="T", content_type="Issue", content_id="I_1",
+            "PVTI_1",
+            title="T",
+            content_type="Issue",
+            content_id="I_1",
             assignee="alice",
         )
 
@@ -783,7 +924,10 @@ class TestApplyTaskFields:
         fields = _stub_fields()
         task = _make_task("T", labels=["bug", "docs"])
         bi = _make_board_item(
-            "PVTI_1", title="T", content_type="Issue", content_id="I_1",
+            "PVTI_1",
+            title="T",
+            content_type="Issue",
+            content_id="I_1",
             labels=["docs", "bug"],
         )
 
@@ -798,7 +942,10 @@ class TestApplyTaskFields:
         fields = _stub_fields()
         task = _make_task("T", assignee="alice", labels=["bug"])
         bi = _make_board_item(
-            "PVTI_1", title="T", content_type="Issue", content_id=None,
+            "PVTI_1",
+            title="T",
+            content_type="Issue",
+            content_id=None,
         )
 
         _apply_task_fields(client, "PVTI_1", task, fields, board_item=bi)
@@ -880,7 +1027,9 @@ class TestParseItemNode:
 
     def test_parse_status_from_field_values(self):
         status_field = ProjectField(
-            id="F_s", name="Status", data_type="SINGLE_SELECT",
+            id="F_s",
+            name="Status",
+            data_type="SINGLE_SELECT",
             options={"Todo": "OPT_1"},
         )
         node = {

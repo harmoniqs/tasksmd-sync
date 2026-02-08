@@ -1,7 +1,5 @@
 """Tests for the TASKS.md parser."""
 
-from datetime import date
-
 from tasksmd_sync.parser import parse_tasks_md
 
 SAMPLE_TASKS_MD = """\
