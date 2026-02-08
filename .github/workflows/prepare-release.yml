@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      tag: v${{ github.event.inputs.version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -29,7 +31,6 @@ jobs:
           fi
           
           # Update version in pyproject.toml
-          # This specifically targets the 'version = "..."' line in the [project] section
           sed -i "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
           
       - name: Commit and push
@@ -46,6 +47,13 @@ jobs:
             git push origin main
           fi
           
-          # Tag and push tag (this will trigger release.yml)
+          # Tag and push tag
           git tag "v$VERSION"
           git push origin "v$VERSION"
+
+  release:
+    needs: prepare
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.prepare.outputs.tag }}
+    secrets: inherit
