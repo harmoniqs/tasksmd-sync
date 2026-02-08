@@ -126,6 +126,8 @@ def execute_sync(
     client: GitHubProjectClient,
     task_file: TaskFile,
     repo_label: str | None = None,
+    repo_owner: str | None = None,
+    repo_name: str | None = None,
     dry_run: bool = False,
 ) -> SyncResult:
     """Execute a full sync from TASKS.md to the project board.
@@ -134,6 +136,8 @@ def execute_sync(
         client: Authenticated GitHub Projects client
         task_file: Parsed TASKS.md
         repo_label: Label to scope archive detection to this repo's items
+        repo_owner: Repository owner for creating real Issues (if provided)
+        repo_name: Repository name for creating real Issues (if provided)
         dry_run: If True, only log what would happen without making changes
     """
     result = SyncResult()
@@ -143,6 +147,18 @@ def execute_sync(
     logger.info("Found %d items on the board", len(board_items))
 
     plan = build_sync_plan(task_file, board_items, repo_label)
+
+    # If repo is provided, ensure DraftIssues are converted even if otherwise unchanged
+    if repo_owner and repo_name:
+        board_by_id = {bi.item_id: bi for bi in board_items}
+        still_unchanged: list[Task] = []
+        for task in plan.unchanged:
+            bi = board_by_id.get(task.board_item_id or "")
+            if bi and bi.content_type == "DraftIssue":
+                plan.update.append((task, bi))
+            else:
+                still_unchanged.append(task)
+        plan.unchanged = still_unchanged
 
     logger.info(
         "Sync plan: %d create, %d update, %d archive, %d unchanged",
@@ -173,9 +189,27 @@ def execute_sync(
     # Create new items
     for task in plan.create:
         try:
-            item_id = client.add_draft_issue(task.title, task.description)
-            logger.info("Created board item '%s' -> %s", task.title, item_id)
-            _apply_task_fields(client, item_id, task, fields)
+            # If repo is provided, create a real Issue then add it to the project; otherwise create DraftIssue
+            if repo_owner and repo_name:
+                issue_id = client.create_issue(repo_owner, repo_name, task.title, task.description)
+                item_id = client.add_item_to_project(issue_id)
+                logger.info("Created Issue '%s' -> %s (item %s)", task.title, issue_id, item_id)
+                temp_item = ProjectItem(
+                    item_id=item_id,
+                    content_id=issue_id,
+                    content_type="Issue",
+                    title=task.title,
+                    status=task.status or "",
+                    assignee=None,
+                    labels=[],
+                    due_date=None,
+                    description=task.description,
+                )
+                _apply_task_fields(client, item_id, task, fields, temp_item)
+            else:
+                item_id = client.add_draft_issue(task.title, task.description)
+                logger.info("Created board item '%s' -> %s", task.title, item_id)
+                _apply_task_fields(client, item_id, task, fields)
             result.created += 1
             result.created_ids[task.title] = item_id
         except Exception as e:
@@ -186,6 +220,30 @@ def execute_sync(
     # Update existing items
     for task, board_item in plan.update:
         try:
+            converted = False
+            if repo_owner and repo_name and board_item.content_type == "DraftIssue":
+                # Convert DraftIssue -> Issue when repo provided
+                issue_id = client.create_issue(repo_owner, repo_name, task.title, task.description)
+                new_item_id = client.add_item_to_project(issue_id)
+                try:
+                    client.archive_item(board_item.item_id)
+                except Exception as e:
+                    logger.debug("Failed to archive old DraftIssue %s: %s", board_item.item_id, e)
+                board_item = ProjectItem(
+                    item_id=new_item_id,
+                    content_id=issue_id,
+                    content_type="Issue",
+                    title=task.title,
+                    status=board_item.status,
+                    assignee=None,
+                    labels=[],
+                    due_date=None,
+                    description=task.description,
+                )
+                task.board_item_id = new_item_id
+                result.created_ids[task.title] = new_item_id  # ensure writeback uses the new item ID
+                converted = True
+
             _apply_task_fields(client, board_item.item_id, task, fields, board_item)
             # Update title/body on the underlying content node
             if board_item.content_id:
@@ -203,7 +261,12 @@ def execute_sync(
                         "Failed to update %s body for '%s': %s",
                         board_item.content_type, task.title, e,
                     )
-            logger.info("Updated board item '%s' (%s)", task.title, board_item.item_id)
+            logger.info(
+                "Updated board item '%s' (%s)%s",
+                task.title,
+                board_item.item_id,
+                " [converted DraftIssue->Issue]" if converted else "",
+            )
             result.updated += 1
         except Exception as e:
             msg = f"Failed to update '{task.title}': {e}"

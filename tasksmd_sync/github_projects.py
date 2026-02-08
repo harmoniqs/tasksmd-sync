@@ -296,6 +296,53 @@ class GitHubProjectClient:
         )
         return data["addProjectV2DraftIssue"]["projectItem"]["id"]
 
+    def create_issue(self, repo_owner: str, repo_name: str, title: str, body: str = "") -> str:
+        """Create a real GitHub Issue in the given repository.
+
+        Returns the Issue node ID (I_...).
+        """
+        # Fetch repository ID (required by createIssue)
+        repo_query = """
+        query($owner: String!, $name: String!) {
+          repository(owner: $owner, name: $name) { id }
+        }
+        """
+        repo_data = self._graphql(repo_query, {"owner": repo_owner, "name": repo_name})
+        repo_id = repo_data["repository"]["id"]
+
+        mutation = """
+        mutation($repoId: ID!, $title: String!, $body: String) {
+          createIssue(input: {
+            repositoryId: $repoId,
+            title: $title,
+            body: $body
+          }) {
+            issue { id }
+          }
+        }
+        """
+        data = self._graphql(
+            mutation,
+            {"repoId": repo_id, "title": title, "body": body},
+        )
+        return data["createIssue"]["issue"]["id"]
+
+    def add_item_to_project(self, content_id: str) -> str:
+        """Add an existing content node (Issue/PR) to the project. Returns item ID."""
+        project_id = self.get_project_id()
+        mutation = """
+        mutation($projectId: ID!, $contentId: ID!) {
+          addProjectV2ItemById(input: {
+            projectId: $projectId,
+            contentId: $contentId
+          }) {
+            item { id }
+          }
+        }
+        """
+        data = self._graphql(mutation, {"projectId": project_id, "contentId": content_id})
+        return data["addProjectV2ItemById"]["item"]["id"]
+
     def update_item_field_text(self, item_id: str, field_id: str, value: str) -> None:
         """Update a text field on a project item."""
         project_id = self.get_project_id()

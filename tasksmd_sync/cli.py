@@ -50,6 +50,13 @@ def main(argv: list[str] | None = None) -> int:
         "Only board items with this label will be archived when removed from TASKS.md.",
     )
     parser.add_argument(
+        "--repo",
+        type=str,
+        default=None,
+        help="Target repository for creating real Issues (format: owner/name). "
+        "If omitted, new items are created as DraftIssues on the project board.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Log what would happen without making changes",
@@ -91,6 +98,14 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
+    # Validate repo argument (if provided)
+    repo_owner = repo_name = None
+    if args.repo:
+        if "/" not in args.repo:
+            logging.error("--repo must be in the form 'owner/name' (e.g. harmoniqs/tasksmd-sync)")
+            return 1
+        repo_owner, repo_name = args.repo.split("/", 1)
+
     # Validate file exists
     tasks_path = Path(args.tasks_file)
     if not tasks_path.is_file():
@@ -113,6 +128,8 @@ def main(argv: list[str] | None = None) -> int:
             client=client,
             task_file=task_file,
             repo_label=args.repo_label,
+            repo_owner=repo_owner,
+            repo_name=repo_name,
             dry_run=args.dry_run,
         )
     finally:

@@ -54,6 +54,8 @@ def _mock_client(board_items: list[ProjectItem] | None = None) -> MagicMock:
     client.list_items.return_value = board_items or []
     client.get_fields.return_value = _stub_fields()
     client.add_draft_issue.return_value = "PVTI_new"
+    client.create_issue.return_value = "I_new"
+    client.add_item_to_project.return_value = "PVTI_new_issue"
     client.resolve_user_id.return_value = "U_alice123"
     client.resolve_label_ids.return_value = ["LA_bug", "LA_docs"]
     return client
@@ -251,6 +253,90 @@ class TestExecuteSyncDraftIssue:
 
 class TestExecuteSyncIssue:
     """Tests for execute_sync when board items are real Issues."""
+
+    def test_create_issue_when_repo_provided(self):
+        """New tasks should create real Issues when repo_owner/repo_name are given."""
+        client = _mock_client()
+        tf = TaskFile(tasks=[_make_task("New issue task", status="Todo", assignee="alice")])
+
+        result = execute_sync(
+            client,
+            tf,
+            repo_owner="harmoniqs",
+            repo_name="tasksmd-sync",
+        )
+
+        assert result.created == 1
+        client.create_issue.assert_called_once_with(
+            "harmoniqs", "tasksmd-sync", "New issue task", ""
+        )
+        client.add_item_to_project.assert_called_once_with("I_new")
+        client.update_item_field_single_select.assert_called_once_with(
+            "PVTI_new_issue", "F_status", "OPT_todo"
+        )
+        client.set_issue_assignees.assert_called_once_with("I_new", ["U_alice123"])
+
+    def test_convert_draft_issue_to_issue_when_repo_provided(self):
+        """DraftIssues should be converted to Issues when repo info is provided."""
+        board = [
+            _make_board_item(
+                "PVTI_1",
+                title="Old draft",
+                status="Todo",
+                content_type="DraftIssue",
+                content_id="DI_1",
+            ),
+        ]
+        client = _mock_client(board)
+        tf = TaskFile(tasks=[_make_task("Old draft", board_id="PVTI_1", status="In Progress")])
+
+        result = execute_sync(
+            client,
+            tf,
+            repo_owner="harmoniqs",
+            repo_name="tasksmd-sync",
+        )
+
+        assert result.updated == 1
+        client.create_issue.assert_called_once_with(
+            "harmoniqs", "tasksmd-sync", "Old draft", ""
+        )
+        client.add_item_to_project.assert_called_once_with("I_new")
+        client.archive_item.assert_any_call("PVTI_1")
+        client.update_issue.assert_called_once_with("I_new", "Old draft", "")
+        # Ensure writeback uses the new item ID
+        assert result.created_ids["Old draft"] == "PVTI_new_issue"
+
+    def test_convert_draft_issue_even_when_unchanged(self):
+        """DraftIssues should be converted even if no field diffs (unchanged path)."""
+        board = [
+            _make_board_item(
+                "PVTI_1",
+                title="Task",
+                status="Todo",
+                content_type="DraftIssue",
+                content_id="DI_1",
+                description="desc",
+            ),
+        ]
+        client = _mock_client(board)
+        tf = TaskFile(tasks=[_make_task("Task", board_id="PVTI_1", status="Todo", description="desc")])
+
+        result = execute_sync(
+            client,
+            tf,
+            repo_owner="harmoniqs",
+            repo_name="tasksmd-sync",
+        )
+
+        # Even though the fields match, the DraftIssue is converted
+        client.create_issue.assert_called_once_with("harmoniqs", "tasksmd-sync", "Task", "desc")
+        client.add_item_to_project.assert_called_once_with("I_new")
+        client.archive_item.assert_any_call("PVTI_1")
+        client.update_issue.assert_called_once_with("I_new", "Task", "desc")
+        assert result.updated == 1
+        assert result.unchanged == 0
+        assert result.created_ids["Task"] == "PVTI_new_issue"
 
     def test_update_issue_body(self):
         """Updating a real Issue should call update_issue (not update_draft_issue_body)."""

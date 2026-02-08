@@ -2,25 +2,8 @@
 
 ## Todo
 
-### Add `--repo` flag for creating real Issues instead of DraftIssues
-<!-- id: PVTI_lADOC9ysqc4BETyazglCGJE -->
-
-New items are currently always created as DraftIssues on the project board.
-To create real GitHub Issues, the CLI needs a `--repo owner/name` flag so
-it knows which repository to file them in.
-
-Implementation requires:
-- Add `--repo` CLI argument to `cli.py`
-- Add `create_issue(repo_owner, repo_name, title, body)` method using the
-  `createIssue` GraphQL mutation
-- Add `add_item_to_project(content_id)` method using the
-  `addProjectV2ItemById` mutation
-- Route `execute_sync` create path: if `--repo` is provided, create a real
-  Issue and add it to the board; otherwise create a DraftIssue (current behavior)
-- After creating a real Issue, sync assignees/labels immediately
-
 ### Add PR comment summary for dry-run in CI
-<!-- id: PVTI_lADOC9ysqc4BETyazglCGJQ -->
+<!-- id: PVTI_lADOC9ysqc4BETyazglCHLI -->
 - **Labels:** feature, ci
 
 When `tasksmd-sync` runs in dry-run mode on a pull request, it should post
@@ -28,16 +11,8 @@ a comment summarizing what would change (e.g. "2 create, 1 update, 0 archive").
 The GitHub Action workflow already runs dry-run on PRs but doesn't post
 a summary comment yet.
 
-### Support converting DraftIssues to real Issues
-<!-- id: PVTI_lADOC9ysqc4BETyazglCGJY -->
-- **Labels:** feature
-
-When `--repo` is provided and an existing board item is a DraftIssue, offer
-a way to convert it into a real Issue in the target repo. This would allow
-teams to start with DraftIssues and promote them to real Issues later.
-
 ### Remove due date syncing
-<!-- id: PVTI_lADOC9ysqc4BETyazglCGJg -->
+<!-- id: PVTI_lADOC9ysqc4BETyazglCHLQ -->
 - **Labels:** feature
 
 Due dates should be managed entirely in the GitHub Projects interface, not
@@ -50,7 +25,7 @@ synced from TASKS.md. Remove due date support from the sync pipeline:
 - Update `FORMAT.md` and `README.md` to remove Due date references
 
 ### Add `--flush` flag to remove completed tasks from TASKS.md
-<!-- id: PVTI_lADOC9ysqc4BETyazglCGJs -->
+<!-- id: PVTI_lADOC9ysqc4BETyazglCHLk -->
 - **Labels:** feature
 
 Add a `--flush` CLI flag that removes tasks in the `## Done` section from
@@ -70,8 +45,25 @@ Behavior:
 
 ## Done
 
+### Add `--repo` flag for creating real Issues instead of DraftIssues
+<!-- id: PVTI_lADOC9ysqc4BETyazglCHLs -->
+
+New items can now be created as real GitHub Issues when `--repo owner/name` is
+provided. The sync creates the Issue, adds it to the project, applies status,
+assignee, and labels, and writes back the item ID. Falls back to DraftIssue when
+`--repo` is omitted.
+
+### Support converting DraftIssues to real Issues
+<!-- id: PVTI_lADOC9ysqc4BETyazglCHL4 -->
+- **Labels:** feature
+
+DraftIssues are automatically converted to real Issues when `--repo` is
+provided, even if they were previously unchanged. The old draft item is
+archived, the Issue is created in the target repo, added to the project, and
+the new item ID is written back.
+
 ### Idempotent sync for DraftIssues and real Issues
-<!-- id: PVTI_lADOC9ysqc4BETyazglCGJ4 -->
+<!-- id: PVTI_lADOC9ysqc4BETyazglCHME -->
 - **Labels:** bug, sync
 
 The sync engine now correctly handles both DraftIssues and real Issues:
@@ -84,7 +76,7 @@ The sync engine now correctly handles both DraftIssues and real Issues:
 Fully working and tested with 98 passing tests.
 
 ### Fix idempotency bug with spurious updates on second run
-<!-- id: PVTI_lADOC9ysqc4BETyazglCGJ8 -->
+<!-- id: PVTI_lADOC9ysqc4BETyazglCHMI -->
 
 Running `tasksmd-sync` twice produced 4 spurious updates on the second run.
 Root cause: `_needs_update` compared `task.assignee` and `task.labels` against
