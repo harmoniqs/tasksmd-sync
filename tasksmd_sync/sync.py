@@ -278,6 +278,18 @@ def _needs_update(task: Task, board_item: ProjectItem) -> bool:
             task.title, sorted(task.labels), sorted(board_item.labels),
         )
         return True
+    # Note: Assignees and Labels are not compared here because _apply_task_fields
+    # cannot sync them to DraftIssues via the Projects API. Comparing them would
+    # create perpetual diffs. Re-enable when assignee/label sync is implemented.
+    return False
+
+
+    if task.labels and sorted(task.labels) != sorted(board_item.labels):
+        logger.debug(
+            "  [DIFF] '%s' labels: %r != %r",
+            task.title, sorted(task.labels), sorted(board_item.labels),
+        )
+        return True
     return False
 
 
