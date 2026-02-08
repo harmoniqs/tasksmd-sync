@@ -403,3 +403,41 @@ def test_issue_unchanged_when_labels_match():
     plan = build_sync_plan(tf, board)
     assert len(plan.unchanged) == 1
     assert len(plan.update) == 0
+
+
+def test_label_removal_triggers_update_for_issue():
+    """Removing all labels from a task should trigger an update on a real Issue."""
+    tf = TaskFile(
+        tasks=[
+            _make_task("Task", board_id="PVTI_1", labels=[]),
+        ]
+    )
+    board = [
+        _make_board_item(
+            "PVTI_1",
+            title="Task",
+            content_type="Issue",
+            labels=["bug", "docs"],
+        ),
+    ]
+    plan = build_sync_plan(tf, board)
+    assert len(plan.update) == 1
+
+
+def test_partial_label_removal_triggers_update_for_issue():
+    """Removing some labels from a task should trigger an update on a real Issue."""
+    tf = TaskFile(
+        tasks=[
+            _make_task("Task", board_id="PVTI_1", labels=["bug"]),
+        ]
+    )
+    board = [
+        _make_board_item(
+            "PVTI_1",
+            title="Task",
+            content_type="Issue",
+            labels=["bug", "docs"],
+        ),
+    ]
+    plan = build_sync_plan(tf, board)
+    assert len(plan.update) == 1
