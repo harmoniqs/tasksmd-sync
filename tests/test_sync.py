@@ -166,6 +166,23 @@ def test_title_fallback_matches_stale_id():
     assert plan.update[0][1].item_id == "PVTI_real"
 
 
+def test_title_fallback_stale_id_unchanged_when_fields_match():
+    """A task with a stale ID that title-matches should be unchanged if fields match."""
+    tf = TaskFile(tasks=[
+        _make_task("Fix the bug", board_id="PVTI_gone", status="Todo", description="desc"),
+    ])
+    board = [
+        _make_board_item("PVTI_real", title="Fix the bug", status="Todo", description="desc"),
+    ]
+    plan = build_sync_plan(tf, board)
+    assert len(plan.create) == 0
+    assert len(plan.update) == 0
+    assert len(plan.unchanged) == 1
+    # The task's board_item_id should be updated to the matched item
+    assert tf.tasks[0].board_item_id == "PVTI_real"
+    assert "Fix the bug" in plan.title_matched
+
+
 def test_title_fallback_no_match_creates():
     """If title doesn't match anything on the board, still create."""
     tf = TaskFile(tasks=[

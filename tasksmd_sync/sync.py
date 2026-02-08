@@ -81,7 +81,10 @@ def build_sync_plan(
                     "Task '%s' had stale ID '%s'; matched by title to %s",
                     task.title, stale_id, matched.item_id,
                 )
-                plan.update.append((task, matched))
+                if _needs_update(task, matched):
+                    plan.update.append((task, matched))
+                else:
+                    plan.unchanged.append(task)
             else:
                 logger.warning(
                     "Task '%s' references board ID '%s' which was not found; will create new",
