@@ -17,6 +17,7 @@ class SyncPlan:
 
     create: list[Task] = field(default_factory=list)
     update: list[tuple[Task, ProjectItem]] = field(default_factory=list)
+    unarchive: list[Task] = field(default_factory=list)
     archive: list[ProjectItem] = field(default_factory=list)
     unchanged: list[Task] = field(default_factory=list)
     title_matched: set[str] = field(default_factory=set)  # titles resolved via fallback
@@ -29,6 +30,7 @@ class SyncResult:
     created: int = 0
     updated: int = 0
     archived: int = 0
+    unarchived: int = 0
     unchanged: int = 0
     errors: list[str] = field(default_factory=list)
     created_ids: dict[str, str] = field(default_factory=dict)  # title -> new_item_id
@@ -38,6 +40,8 @@ class SyncResult:
 def build_sync_plan(
     task_file: TaskFile,
     board_items: list[ProjectItem],
+    repo_owner: str | None = None,
+    repo_name: str | None = None,
     repo_label: str | None = None,
 ) -> SyncPlan:
     """Compare TASKS.md state to board state and produce a plan.
@@ -45,8 +49,9 @@ def build_sync_plan(
     Args:
         task_file: Parsed TASKS.md
         board_items: Current items on the project board
-        repo_label: If set, only consider board items with this label for
-                     archive detection (so we don't archive items from other repos)
+        repo_owner: If set, only consider board items from this owner for archive detection
+        repo_name: If set, only consider board items from this repo for archive detection
+        repo_label: (Deprecated) If set, only consider board items with this label
     """
     plan = SyncPlan()
 
@@ -86,12 +91,13 @@ def build_sync_plan(
                 else:
                     plan.unchanged.append(task)
             else:
-                logger.warning(
-                    "Task '%s' references board ID '%s' which was not found; will create new",
+                # No active board item matches ID or title — assume it's archived
+                logger.info(
+                    "Task '%s' references board ID '%s' which was not found on active board; will try to unarchive",
                     task.title,
                     task.board_item_id,
                 )
-                plan.create.append(task)
+                plan.unarchive.append(task)
         else:
             # No board ID — try title fallback before creating
             matched = _title_fallback_match(task, board_by_title, seen_board_ids)
@@ -114,9 +120,15 @@ def build_sync_plan(
     for bi in board_items:
         if bi.item_id in seen_board_ids:
             continue
-        # If repo_label is set, only archive items that belong to this repo
-        if repo_label and repo_label not in bi.labels:
+        
+        # Scoping: only archive items that belong to the specified repo/label
+        # If repo_owner/repo_name are provided, use them (preferred)
+        if repo_owner and repo_name:
+            if bi.repo_owner != repo_owner or bi.repo_name != repo_name:
+                continue
+        elif repo_label and repo_label not in bi.labels:
             continue
+            
         plan.archive.append(bi)
 
     return plan
@@ -146,7 +158,9 @@ def execute_sync(
     board_items = client.list_items()
     logger.info("Found %d items on the board", len(board_items))
 
-    plan = build_sync_plan(task_file, board_items, repo_label)
+    plan = build_sync_plan(
+        task_file, board_items, repo_owner=repo_owner, repo_name=repo_name, repo_label=repo_label
+    )
 
     # If repo is provided, ensure DraftIssues are converted even if otherwise unchanged
     if repo_owner and repo_name:
@@ -161,10 +175,11 @@ def execute_sync(
         plan.unchanged = still_unchanged
 
     logger.info(
-        "Sync plan: %d create, %d update, %d archive, %d unchanged",
+        "Sync plan: %d create, %d update, %d archive, %d unarchive, %d unchanged",
         len(plan.create),
         len(plan.update),
         len(plan.archive),
+        len(plan.unarchive),
         len(plan.unchanged),
     )
 
@@ -175,16 +190,37 @@ def execute_sync(
     for task in plan.unchanged:
         if task.board_item_id:
             result.matched_ids[task.title] = task.board_item_id
+    for task in plan.unarchive:
+        if task.board_item_id:
+            result.matched_ids[task.title] = task.board_item_id
 
     if dry_run:
         _log_dry_run(plan)
         result.created = len(plan.create)
         result.updated = len(plan.update)
         result.archived = len(plan.archive)
+        result.unarchived = len(plan.unarchive)
         result.unchanged = len(plan.unchanged)
         return result
 
     fields = client.get_fields()
+
+    # Unarchive items
+    for task in plan.unarchive:
+        try:
+            if task.board_item_id:
+                client.unarchive_item(task.board_item_id)
+                logger.info(
+                    "Unarchived board item '%s' (%s)", task.title, task.board_item_id
+                )
+                result.unarchived += 1
+                # After unarchiving, it might still need updates, but for simplicity
+                # we'll let the NEXT sync run handle the updates now that it's visible.
+                # Actually, we could try to update it now, but we don't have the ProjectItem object.
+        except Exception as e:
+            msg = f"Failed to unarchive '{task.title}': {e}"
+            logger.error(msg)
+            result.errors.append(msg)
 
     # Create new items
     for task in plan.create:
@@ -454,6 +490,10 @@ def _log_dry_run(plan: SyncPlan) -> None:
             "[DRY RUN] Unchanged: '%s' (%s)%s",
             task.title, task.board_item_id or "?", match_note,
         )
+    for task in plan.unarchive:
+        logger.info(
+            "[DRY RUN] Would unarchive: '%s' (%s)", task.title, task.board_item_id
+        )
     for bi in plan.archive:
         logger.info(
             "[DRY RUN] Would archive: '%s' (%s)", bi.title, bi.item_id
@@ -462,6 +502,8 @@ def _log_dry_run(plan: SyncPlan) -> None:
     # Writeback preview
     writeback_titles = [
         t.title for t in plan.create
+    ] + [
+        t.title for t in plan.unarchive
     ] + [
         t.title for t in (plan.unchanged + [pair[0] for pair in plan.update])
         if t.title in plan.title_matched

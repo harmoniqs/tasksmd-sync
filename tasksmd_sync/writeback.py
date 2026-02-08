@@ -8,8 +8,76 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+RE_STATUS_HEADING = re.compile(r"^##\s+(.+)$")
 RE_TASK_HEADING = re.compile(r"^###\s+(.+)$")
 RE_BOARD_ID = re.compile(r"^<!--\s*id:\s*(\S+)\s*-->$")
+
+
+def remove_done_tasks(tasks_path: str | Path) -> bool:
+    """Remove tasks under 'Done', 'Completed', or 'Closed' headings.
+
+    Args:
+        tasks_path: Path to the TASKS.md file
+
+    Returns:
+        True if the file was modified, False otherwise.
+    """
+    path = Path(tasks_path)
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    new_lines: list[str] = []
+    modified = False
+    
+    current_status = None
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.rstrip("\n").rstrip("\r")
+        
+        # Check for status heading
+        m = RE_STATUS_HEADING.match(stripped)
+        if m:
+            from .parser import _normalize_status
+            current_status = _normalize_status(m.group(1).strip())
+            new_lines.append(line)
+            i += 1
+            continue
+            
+        # Check for task heading
+        m = RE_TASK_HEADING.match(stripped)
+        if m:
+            if current_status == "Done":
+                # Skip this task entirely
+                modified = True
+                i += 1
+                # Skip lines until next heading or end of file
+                while i < len(lines):
+                    next_stripped = lines[i].rstrip("\n").rstrip("\r")
+                    if RE_STATUS_HEADING.match(next_stripped) or RE_TASK_HEADING.match(next_stripped):
+                        break
+                    i += 1
+                continue
+            else:
+                new_lines.append(line)
+                i += 1
+                continue
+        
+        new_lines.append(line)
+        i += 1
+
+    if modified:
+        # Clean up double blank lines that might result from removals
+        final_lines = []
+        last_blank = False
+        for line in new_lines:
+            is_blank = line.strip() == ""
+            if is_blank and last_blank:
+                continue
+            final_lines.append(line)
+            last_blank = is_blank
+            
+        path.write_text("".join(final_lines), encoding="utf-8")
+        
+    return modified
 
 
 def writeback_ids(

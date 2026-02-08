@@ -11,7 +11,7 @@ from pathlib import Path
 from .github_projects import GitHubProjectClient
 from .parser import parse_tasks_file
 from .sync import execute_sync
-from .writeback import writeback_ids
+from .writeback import writeback_ids, remove_done_tasks
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -72,6 +72,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Write board item IDs back into the TASKS.md file after sync",
     )
     parser.add_argument(
+        "--archive-done",
+        action="store_true",
+        help="Archive tasks with 'Done' status and remove them from TASKS.md",
+    )
+    parser.add_argument(
         "--output-json",
         type=str,
         default=None,
@@ -117,6 +122,19 @@ def main(argv: list[str] | None = None) -> int:
     task_file = parse_tasks_file(tasks_path)
     logging.info("Found %d tasks", len(task_file.tasks))
 
+    # If --archive-done is set, we only sync tasks that are NOT Done.
+    # The Done tasks will be removed from the local file and archived on the board
+    # by the normal sync process (because they are no longer in the task list).
+    if args.archive_done:
+        original_count = len(task_file.tasks)
+        task_file.tasks = [t for t in task_file.tasks if t.status != "Done"]
+        archiving_count = original_count - len(task_file.tasks)
+        if archiving_count > 0:
+            logging.info(
+                "Archiving %d 'Done' tasks and removing them from %s",
+                archiving_count, tasks_path
+            )
+
     # Sync
     client = GitHubProjectClient(
         token=token,
@@ -159,12 +177,18 @@ def main(argv: list[str] | None = None) -> int:
         else:
             logging.info("No new IDs to write back")
 
+    # If --archive-done is set, remove them from the file now
+    if args.archive_done and not args.dry_run:
+        if remove_done_tasks(tasks_path):
+            logging.info("Removed 'Done' tasks from %s", tasks_path)
+
     # Report
     logging.info(
-        "Sync complete: %d created, %d updated, %d archived, %d unchanged",
+        "Sync complete: %d created, %d updated, %d archived, %d unarchived, %d unchanged",
         result.created,
         result.updated,
         result.archived,
+        result.unarchived,
         result.unchanged,
     )
     if result.errors:
@@ -178,6 +202,7 @@ def main(argv: list[str] | None = None) -> int:
             "created": result.created,
             "updated": result.updated,
             "archived": result.archived,
+            "unarchived": result.unarchived,
             "unchanged": result.unchanged,
             "errors": result.errors,
             "created_ids": result.created_ids,

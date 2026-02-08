@@ -73,6 +73,30 @@ def test_archive_scoped_to_repo_label():
     assert plan.archive[0].item_id == "PVTI_1"
 
 
+def test_archive_scoped_to_repo():
+    """Board items from other repositories should NOT be archived."""
+    tf = TaskFile(tasks=[])
+    board = [
+        _make_board_item("PVTI_1", title="My repo task", repo_owner="harmoniqs", repo_name="tasksmd-sync"),
+        _make_board_item("PVTI_2", title="Other repo task", repo_owner="other", repo_name="repo"),
+    ]
+    plan = build_sync_plan(tf, board, repo_owner="harmoniqs", repo_name="tasksmd-sync")
+    assert len(plan.archive) == 1
+    assert plan.archive[0].item_id == "PVTI_1"
+
+
+def test_unarchive_when_id_not_found():
+    """If a task has an ID but it's not on the active board, try to unarchive."""
+    tf = TaskFile(tasks=[
+        _make_task("Archived Task", board_id="PVTI_archived"),
+    ])
+    board = []  # Empty board (no active items)
+    plan = build_sync_plan(tf, board)
+    assert len(plan.unarchive) == 1
+    assert plan.unarchive[0].board_item_id == "PVTI_archived"
+    assert len(plan.create) == 0
+
+
 def test_mixed_operations():
     tf = TaskFile(tasks=[
         _make_task("Existing unchanged", board_id="PVTI_1", status="Todo", description="d"),
@@ -91,13 +115,13 @@ def test_mixed_operations():
     assert len(plan.archive) == 1
 
 
-def test_missing_board_id_treated_as_new():
-    """If a task has a board_id that doesn't exist on the board, create it."""
+def test_missing_board_id_treated_as_unarchive():
+    """If a task has a board_id that doesn't exist on the board, try to unarchive."""
     tf = TaskFile(tasks=[
         _make_task("Ghost", board_id="PVTI_nonexistent"),
     ])
     plan = build_sync_plan(tf, [])
-    assert len(plan.create) == 1
+    assert len(plan.unarchive) == 1
 
 
 def test_status_change_triggers_update():

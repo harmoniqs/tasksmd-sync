@@ -37,6 +37,8 @@ class ProjectItem:
     labels: list[str] = field(default_factory=list)
     due_date: date | None = None
     description: str = ""
+    repo_owner: str | None = None
+    repo_name: str | None = None
 
 
 class GitHubProjectClient:
@@ -201,6 +203,10 @@ class GitHubProjectClient:
                           id
                           title
                           body
+                          repository {
+                            name
+                            owner { login }
+                          }
                           assignees(first: 5) {
                             nodes { login }
                           }
@@ -254,6 +260,14 @@ class GitHubProjectClient:
         # Labels from content
         label_nodes = (content.get("labels") or {}).get("nodes") or []
         item.labels = [ln["name"] for ln in label_nodes if ln.get("name")]
+
+        # Repository info from content (Issues only)
+        repo = content.get("repository")
+        if repo:
+            item.repo_name = repo.get("name")
+            repo_owner = repo.get("owner")
+            if repo_owner:
+                item.repo_owner = repo_owner.get("login")
 
         # Field values
         for fv in (node.get("fieldValues") or {}).get("nodes") or []:
@@ -564,6 +578,23 @@ class GitHubProjectClient:
         mutation = """
         mutation($projectId: ID!, $itemId: ID!) {
           archiveProjectV2Item(input: {
+            projectId: $projectId,
+            itemId: $itemId
+          }) {
+            item { id }
+          }
+        }
+        """
+        self._graphql(
+            mutation, {"projectId": project_id, "itemId": item_id}
+        )
+
+    def unarchive_item(self, item_id: str) -> None:
+        """Unarchive an item from the project board."""
+        project_id = self.get_project_id()
+        mutation = """
+        mutation($projectId: ID!, $itemId: ID!) {
+          unarchiveProjectV2Item(input: {
             projectId: $projectId,
             itemId: $itemId
           }) {
