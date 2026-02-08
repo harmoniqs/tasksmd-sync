@@ -610,6 +610,24 @@ class GitHubProjectClient:
         """
         self._graphql(mutation, {"projectId": project_id, "itemId": item_id})
 
+    def reopen_issue(self, issue_id: str) -> None:
+        """Reopen a closed GitHub Issue.
+
+        Args:
+            issue_id: The Issue node ID (I_...), NOT the ProjectV2Item ID.
+        """
+        mutation = """
+        mutation($issueId: ID!) {
+          updateIssue(input: {
+            id: $issueId,
+            state: OPEN
+          }) {
+            issue { id }
+          }
+        }
+        """
+        self._graphql(mutation, {"issueId": issue_id})
+
     def close(self) -> None:
         """Close the HTTP client."""
         self._client.close()

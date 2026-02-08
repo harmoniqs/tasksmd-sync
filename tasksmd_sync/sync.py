@@ -227,9 +227,24 @@ def execute_sync(
                     "Unarchived board item '%s' (%s)", task.title, task.board_item_id
                 )
                 result.unarchived += 1
-                # After unarchiving, it might still need updates, but for simplicity
-                # we'll let the NEXT sync run handle the updates now that it's visible.
-                # Actually, we could try to update it now, but we don't have the ProjectItem object.
+
+                # After unarchiving, apply task fields (e.g. status) and reopen
+                # the underlying Issue if it was closed.
+                _apply_task_fields(client, task.board_item_id, task, fields)
+                try:
+                    refreshed = client.list_items()
+                    for bi in refreshed:
+                        if bi.item_id == task.board_item_id:
+                            if bi.content_type == "Issue" and bi.content_id:
+                                client.reopen_issue(bi.content_id)
+                                logger.info(
+                                    "Reopened Issue '%s' (%s)",
+                                    task.title,
+                                    bi.content_id,
+                                )
+                            break
+                except Exception as e:
+                    logger.debug("Failed to reopen Issue for '%s': %s", task.title, e)
         except Exception as e:
             msg = f"Failed to unarchive '{task.title}': {e}"
             logger.error(msg)
