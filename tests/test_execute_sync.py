@@ -6,7 +6,6 @@ for both DraftIssue and real Issue content types.
 
 from __future__ import annotations
 
-from datetime import date
 from unittest.mock import MagicMock
 
 from tasksmd_sync.github_projects import GitHubProjectClient, ProjectField, ProjectItem

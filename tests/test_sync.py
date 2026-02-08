@@ -1,6 +1,5 @@
 """Tests for the sync engine (plan building, no API calls)."""
 
-from datetime import date
 
 from tasksmd_sync.github_projects import ProjectItem
 from tasksmd_sync.models import Task, TaskFile
