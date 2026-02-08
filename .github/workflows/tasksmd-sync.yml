@@ -1,0 +1,25 @@
+name: Sync TASKS.md
+
+on:
+  push:
+    branches: [main]
+    paths: ['TASKS.md']
+  pull_request:
+    paths: ['TASKS.md']
+
+jobs:
+  sync-tasks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync TASKS.md
+        uses: ./
+        with:
+          tasks-file: TASKS.md
+          org: harmoniqs
+          project-number: '2'
+          repo-label: ${{ github.event.repository.name }}
+          github-token: ${{ secrets.PROJECTS_TOKEN }}
+          # Dry-run on PRs, live sync on push to main
+          dry-run: ${{ github.event_name == 'pull_request' }}
