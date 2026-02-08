@@ -1,6 +1,6 @@
 # Tasks
 
-## Todo
+## Done
 
 ### Add PR comment summary for dry-run in CI
 <!-- id: PVTI_lADOC9ysqc4BETyazglCHLI -->
@@ -29,6 +29,4 @@ corresponding GitHub Issues. This includes:
 - Resolving label names to IDs within the correct repository context.
 - Adding missing labels to issues.
 - Removing labels that are no longer present in TASKS.md.
-
-## Done
 

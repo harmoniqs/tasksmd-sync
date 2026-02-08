@@ -4,7 +4,6 @@ from datetime import date
 
 from tasksmd_sync.parser import parse_tasks_md
 
-
 SAMPLE_TASKS_MD = """\
 # Tasks
 
@@ -14,7 +13,6 @@ SAMPLE_TASKS_MD = """\
 <!-- id: PVTI_abc123 -->
 - **Assignee:** @alice
 - **Labels:** feature, security
-- **Due:** 2025-06-01
 
 We need to add OAuth2 support for the login flow.
 This should support both GitHub and Google providers.
@@ -30,7 +28,6 @@ Document all public API endpoints.
 <!-- id: PVTI_def456 -->
 - **Assignee:** @bob
 - **Labels:** bug, urgent
-- **Due:** 2025-03-15
 
 The worker pool is not releasing connections properly.
 
@@ -88,14 +85,6 @@ def test_parse_labels():
     assert tf.tasks[1].labels == ["docs"]
     assert tf.tasks[2].labels == ["bug", "urgent"]
     assert tf.tasks[3].labels == []
-
-
-def test_parse_due_dates():
-    tf = parse_tasks_md(SAMPLE_TASKS_MD)
-    assert tf.tasks[0].due_date == date(2025, 6, 1)
-    assert tf.tasks[1].due_date is None
-    assert tf.tasks[2].due_date == date(2025, 3, 15)
-    assert tf.tasks[3].due_date is None
 
 
 def test_parse_descriptions():
@@ -187,7 +176,6 @@ def test_minimal_task():
     assert tf.tasks[0].description == ""
     assert tf.tasks[0].assignee is None
     assert tf.tasks[0].labels == []
-    assert tf.tasks[0].due_date is None
     assert tf.tasks[0].board_item_id is None
 
 
@@ -196,7 +184,6 @@ def test_metadata_in_any_order():
 ## Todo
 
 ### Flexible metadata
-- **Due:** 2025-12-31
 <!-- id: PVTI_flex -->
 - **Labels:** a, b
 - **Assignee:** @zara
@@ -208,5 +195,4 @@ The description starts here.
     assert t.board_item_id == "PVTI_flex"
     assert t.assignee == "zara"
     assert t.labels == ["a", "b"]
-    assert t.due_date == date(2025, 12, 31)
     assert "description starts here" in t.description

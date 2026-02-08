@@ -17,7 +17,6 @@ A TASKS.md file is organized into **status sections**, each containing **task bl
 <!-- id: PVTI_lADOBx... -->
 - **Assignee:** @username
 - **Labels:** bug, urgent
-- **Due:** 2025-03-15
 
 Description of the task goes here. Can be multiple paragraphs,
 include code blocks, lists, etc.
@@ -35,7 +34,6 @@ reverse-sync pass.
 <!-- id: PVTI_lADOBx456 -->
 - **Assignee:** @doc
 - **Labels:** feature, core
-- **Due:** 2025-06-01
 
 Multi-paragraph description with code:
 
@@ -74,7 +72,6 @@ Each task block starts with a `### heading` (h3) and continues until the next `#
 - `<!-- id: PVTI_... -->` — hidden project board item ID for matching. Injected by the sync tool on creation. If absent, a new board item is created.
 - `- **Assignee:** @username` — GitHub username (with or without `@`)
 - `- **Labels:** label1, label2` — comma-separated list of labels
-- `- **Due:** YYYY-MM-DD` — due date in ISO format
 
 **Description:**
 Everything after the metadata lines until the next task or section heading. Supports full GitHub-flavored markdown.
@@ -85,7 +82,6 @@ Everything after the metadata lines until the next task or section heading. Supp
 |-------|--------|---------|
 | Assignee | `@username` or `username` | `@octocat` |
 | Labels | Comma-separated strings | `bug, urgent, P0` |
-| Due | ISO 8601 date | `2025-03-15` |
 | Status | Determined by parent `##` section | (implicit) |
 
 ### ID Comments

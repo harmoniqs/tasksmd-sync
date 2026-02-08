@@ -26,13 +26,13 @@ def remove_done_tasks(tasks_path: str | Path) -> bool:
     lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
     new_lines: list[str] = []
     modified = False
-    
+
     current_status = None
     i = 0
     while i < len(lines):
         line = lines[i]
         stripped = line.rstrip("\n").rstrip("\r")
-        
+
         # Check for status heading
         m = RE_STATUS_HEADING.match(stripped)
         if m:
@@ -41,7 +41,7 @@ def remove_done_tasks(tasks_path: str | Path) -> bool:
             new_lines.append(line)
             i += 1
             continue
-            
+
         # Check for task heading
         m = RE_TASK_HEADING.match(stripped)
         if m:
@@ -60,7 +60,7 @@ def remove_done_tasks(tasks_path: str | Path) -> bool:
                 new_lines.append(line)
                 i += 1
                 continue
-        
+
         new_lines.append(line)
         i += 1
 
@@ -74,9 +74,9 @@ def remove_done_tasks(tasks_path: str | Path) -> bool:
                 continue
             final_lines.append(line)
             last_blank = is_blank
-            
+
         path.write_text("".join(final_lines), encoding="utf-8")
-        
+
     return modified
 
 

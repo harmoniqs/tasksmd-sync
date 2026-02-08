@@ -120,7 +120,7 @@ def build_sync_plan(
     for bi in board_items:
         if bi.item_id in seen_board_ids:
             continue
-        
+
         # Scoping: only archive items that belong to the specified repo/label
         # If repo_owner/repo_name are provided, use them (preferred)
         if repo_owner and repo_name:
@@ -128,7 +128,7 @@ def build_sync_plan(
                 continue
         elif repo_label and repo_label not in bi.labels:
             continue
-            
+
         plan.archive.append(bi)
 
     return plan
@@ -366,12 +366,6 @@ def _needs_update(task: Task, board_item: ProjectItem) -> bool:
             logger.debug("    task:  %r", task_desc)
             logger.debug("    board: %r", board_desc)
         return True
-    if task.due_date and task.due_date != board_item.due_date:
-        logger.debug(
-            "  [DIFF] '%s' due_date: %s != %s",
-            task.title, task.due_date, board_item.due_date,
-        )
-        return True
     # Assignees and Labels are properties of the underlying content node, not
     # project fields.  We can only sync them when the content is a real Issue;
     # DraftIssues don't support assignees/labels via the API, so comparing
@@ -423,15 +417,8 @@ def _apply_task_fields(
                 list(status_field.options.keys()),
             )
 
-    # Due date — map to "End date" field (or "Due" as fallback)
-    if task.due_date:
-        due_field = fields.get("End date") or fields.get("Due")
-        if due_field:
-            client.update_item_field_date(item_id, due_field.id, task.due_date)
-
     # Assignees and Labels — only syncable on real Issues (not DraftIssues)
-    is_issue = board_item and board_item.content_type == "Issue" and board_item.content_id
-    if is_issue:
+    if board_item and board_item.content_type == "Issue" and board_item.content_id:
         if task.assignee and task.assignee != board_item.assignee:
             user_id = client.resolve_user_id(task.assignee)
             if user_id:

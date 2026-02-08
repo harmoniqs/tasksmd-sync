@@ -34,7 +34,6 @@ Tasks are organized by status sections using markdown headings:
 <!-- id: PVTI_abc123 -->
 - **Assignee:** @alice
 - **Labels:** feature, security
-- **Due:** 2025-06-01
 
 Description of the task goes here. Supports full GitHub-flavored
 markdown including code blocks, lists, and links.
@@ -64,7 +63,6 @@ Configured GitHub Actions for tests and linting.
 | Board ID | `<!-- id: PVTI_... -->` | No (auto-assigned) |
 | Assignee | `- **Assignee:** @username` | No |
 | Labels | `- **Labels:** label1, label2` | No |
-| Due Date | `- **Due:** YYYY-MM-DD` | No |
 | Status | Determined by parent `##` section | Yes (implicit) |
 | Description | Free text after metadata | No |
 
@@ -106,7 +104,10 @@ tasksmd-sync TASKS.md \
 | `--org` | GitHub org login (required) |
 | `--project-number` | Project board number (required) |
 | `--token` | GitHub token (or set `GITHUB_TOKEN` / `TASKSMD_GITHUB_TOKEN` env var) |
+| `--repo` | Target repository for creating real Issues (format: `owner/repo`) |
 | `--repo-label` | Label to scope archive detection to this repo's items |
+| `--archive-done` | Archive tasks in the `Done` section and remove them from `TASKS.md` |
+| `--writeback` | Write board item IDs back into `TASKS.md` (default: false) |
 | `--dry-run` | Preview changes without executing |
 | `--verbose` / `-v` | Enable debug logging |
 | `--output-json` | Write sync results to a JSON file |

@@ -1,5 +1,5 @@
-from pathlib import Path
 from tasksmd_sync.writeback import remove_done_tasks
+
 
 def test_remove_done_tasks(tmp_path):
     tasks_file = tmp_path / "TASKS.md"
@@ -24,7 +24,7 @@ Keep this.
 
     modified = remove_done_tasks(tasks_file)
     assert modified is True
-    
+
     content = tasks_file.read_text(encoding="utf-8")
     assert "Active Task" in content
     assert "Completed Task" not in content

@@ -14,8 +14,39 @@ dependencies = [
     "pyyaml>=6.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.3",
+    "mypy>=1.0",
+    "pre-commit>=3.0",
+]
+
 [project.scripts]
 tasksmd-sync = "tasksmd_sync.cli:main"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "C",   # flake8-comprehensions
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501", # Line too long
+    "C901", # Function too complex
+    "E741", # Ambiguous variable name
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["tasksmd_sync"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

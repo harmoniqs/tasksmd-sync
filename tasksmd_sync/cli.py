@@ -11,7 +11,7 @@ from pathlib import Path
 from .github_projects import GitHubProjectClient
 from .parser import parse_tasks_file
 from .sync import execute_sync
-from .writeback import writeback_ids, remove_done_tasks
+from .writeback import remove_done_tasks, writeback_ids
 
 
 def main(argv: list[str] | None = None) -> int:

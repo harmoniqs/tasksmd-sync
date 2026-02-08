@@ -7,14 +7,11 @@ for both DraftIssue and real Issue content types.
 from __future__ import annotations
 
 from datetime import date
-from unittest.mock import MagicMock, call, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 from tasksmd_sync.github_projects import GitHubProjectClient, ProjectField, ProjectItem
 from tasksmd_sync.models import Task, TaskFile
 from tasksmd_sync.sync import _apply_task_fields, _needs_update, execute_sync
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -81,19 +78,6 @@ class TestExecuteSyncDraftIssue:
         client.add_draft_issue.assert_called_once_with("New task", "")
         client.update_item_field_single_select.assert_called_once_with(
             "PVTI_new", "F_status", "OPT_todo"
-        )
-
-    def test_create_sets_due_date(self):
-        """Created items should have their due date set."""
-        client = _mock_client()
-        tf = TaskFile(tasks=[
-            _make_task("Task", due_date=date(2025, 7, 1)),
-        ])
-
-        execute_sync(client, tf)
-
-        client.update_item_field_date.assert_called_once_with(
-            "PVTI_new", "F_due", date(2025, 7, 1)
         )
 
     def test_create_does_not_call_assignee_or_label_mutations(self):
@@ -383,7 +367,7 @@ class TestExecuteSyncIssue:
             _make_board_item(
                 "PVTI_1", title="Task", status="Todo",
                 content_type="Issue", content_id="I_1",
-                labels=[],
+                labels=[], repo_name="tasksmd-sync",
             ),
         ]
         client = _mock_client(board)
@@ -394,7 +378,7 @@ class TestExecuteSyncIssue:
         result = execute_sync(client, tf)
 
         assert result.updated == 1
-        client.resolve_label_ids.assert_called_once_with("harmoniqs", "", ["bug", "docs"])
+        client.resolve_label_ids.assert_called_once_with("harmoniqs", "tasksmd-sync", ["bug", "docs"])
         client.set_issue_labels.assert_called_once_with("I_1", ["LA_bug", "LA_docs"])
 
     def test_update_issue_no_assignee_call_when_matching(self):
@@ -654,12 +638,6 @@ class TestNeedsUpdate:
         board = _make_board_item("X", title="T", description="hello")
         assert _needs_update(task, board) is False
 
-    def test_due_date_only_compared_when_task_has_one(self):
-        """If task has no due_date, board's due_date shouldn't cause a diff."""
-        task = _make_task("T")
-        board = _make_board_item("X", title="T", due_date=date(2025, 1, 1))
-        assert _needs_update(task, board) is False
-
     def test_assignee_ignored_when_content_type_none(self):
         """If content_type is not set, assignee diffs are ignored."""
         task = _make_task("T", assignee="alice")
@@ -726,17 +704,6 @@ class TestApplyTaskFields:
 
         client.update_item_field_single_select.assert_not_called()
 
-    def test_sets_due_date(self):
-        client = _mock_client()
-        fields = _stub_fields()
-        task = _make_task("T", due_date=date(2025, 12, 1))
-
-        _apply_task_fields(client, "PVTI_1", task, fields)
-
-        client.update_item_field_date.assert_called_once_with(
-            "PVTI_1", "F_due", date(2025, 12, 1)
-        )
-
     def test_no_board_item_skips_assignee_labels(self):
         """When board_item is None (new item), skip assignee/label sync."""
         client = _mock_client()
@@ -787,12 +754,12 @@ class TestApplyTaskFields:
         task = _make_task("T", labels=["bug", "docs"])
         bi = _make_board_item(
             "PVTI_1", title="T", content_type="Issue", content_id="I_1",
-            labels=[],
+            labels=[], repo_name="tasksmd-sync",
         )
 
         _apply_task_fields(client, "PVTI_1", task, fields, board_item=bi)
 
-        client.resolve_label_ids.assert_called_once()
+        client.resolve_label_ids.assert_called_once_with("harmoniqs", "tasksmd-sync", ["bug", "docs"])
         client.set_issue_labels.assert_called_once_with("I_1", ["LA_bug", "LA_docs"])
 
     def test_issue_skips_assignee_when_already_matching(self):
@@ -937,29 +904,6 @@ class TestParseItemNode:
         item = self._parse(node, status_field)
         assert item.status == "In Progress"
 
-    def test_parse_due_date_from_field_values(self):
-        node = {
-            "id": "PVTI_5",
-            "content": {
-                "__typename": "Issue",
-                "id": "I_3",
-                "title": "With date",
-                "body": "",
-                "assignees": {"nodes": []},
-                "labels": {"nodes": []},
-            },
-            "fieldValues": {
-                "nodes": [
-                    {
-                        "field": {"name": "End date"},
-                        "date": "2025-07-01",
-                    },
-                ]
-            },
-        }
-        item = self._parse(node)
-        assert item.due_date == date(2025, 7, 1)
-
     def test_parse_empty_content(self):
         """Items with no content (e.g. redacted) should not crash."""
         node = {
@@ -987,27 +931,3 @@ class TestParseItemNode:
         }
         item = self._parse(node)
         assert item.description == ""
-
-    def test_parse_invalid_date_ignored(self):
-        """Invalid date strings should be silently skipped."""
-        node = {
-            "id": "PVTI_8",
-            "content": {
-                "__typename": "Issue",
-                "id": "I_4",
-                "title": "Bad date",
-                "body": "",
-                "assignees": {"nodes": []},
-                "labels": {"nodes": []},
-            },
-            "fieldValues": {
-                "nodes": [
-                    {
-                        "field": {"name": "End date"},
-                        "date": "not-a-date",
-                    },
-                ]
-            },
-        }
-        item = self._parse(node)
-        assert item.due_date is None

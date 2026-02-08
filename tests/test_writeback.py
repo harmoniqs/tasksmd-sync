@@ -4,7 +4,6 @@ from pathlib import Path
 
 from tasksmd_sync.writeback import writeback_ids
 
-
 SAMPLE = """\
 # Tasks
 
@@ -30,7 +29,6 @@ Just a description.
 
 ### In progress task
 <!-- id: PVTI_inprog -->
-- **Due:** 2025-06-01
 
 Working on it.
 """

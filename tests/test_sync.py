@@ -146,17 +146,6 @@ def test_description_change_triggers_update():
     assert len(plan.update) == 1
 
 
-def test_due_date_change_triggers_update():
-    tf = TaskFile(tasks=[
-        _make_task("Task", board_id="PVTI_1", due_date=date(2025, 12, 1)),
-    ])
-    board = [
-        _make_board_item("PVTI_1", title="Task", due_date=date(2025, 6, 1)),
-    ]
-    plan = build_sync_plan(tf, board)
-    assert len(plan.update) == 1
-
-
 # --- Title fallback matching ---
 
 

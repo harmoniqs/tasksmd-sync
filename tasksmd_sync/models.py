@@ -16,7 +16,6 @@ class Task:
     board_item_id: str | None = None
     assignee: str | None = None
     labels: list[str] = field(default_factory=list)
-    due_date: date | None = None
 
     @property
     def has_board_id(self) -> bool:
@@ -33,8 +32,6 @@ class Task:
             d["assignee"] = self.assignee
         if self.labels:
             d["labels"] = sorted(self.labels)
-        if self.due_date:
-            d["due_date"] = self.due_date.isoformat()
         return d
 
 
@@ -54,7 +51,7 @@ class TaskFile:
 
     @property
     def by_board_id(self) -> dict[str, Task]:
-        return {t.board_item_id: t for t in self.tasks if t.has_board_id}
+        return {t.board_item_id: t for t in self.tasks if t.board_item_id is not None}
 
     @property
     def unlinked_tasks(self) -> list[Task]:

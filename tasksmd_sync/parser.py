@@ -14,10 +14,6 @@ RE_TASK_HEADING = re.compile(r"^###\s+(.+)$")
 RE_BOARD_ID = re.compile(r"^<!--\s*id:\s*(\S+)\s*-->$")
 RE_ASSIGNEE = re.compile(r"^-\s+\*\*Assignee:\*\*\s*@?(\S+)\s*$")
 RE_LABELS = re.compile(r"^-\s+\*\*Labels:\*\*\s*(.+)$")
-RE_DUE = re.compile(r"^-\s+\*\*Due:\*\*\s*(\d{4}-\d{2}-\d{2})\s*$")
-
-# Set of metadata patterns for detecting the boundary between metadata and description
-METADATA_PATTERNS = [RE_BOARD_ID, RE_ASSIGNEE, RE_LABELS, RE_DUE]
 
 
 def parse_tasks_md(content: str, source_path: str = "") -> TaskFile:
@@ -91,7 +87,6 @@ class _TaskBuilder:
         self.board_item_id: str | None = None
         self.assignee: str | None = None
         self.labels: list[str] = []
-        self.due_date: date | None = None
         self._desc_lines: list[str] = []
         self._in_metadata = True
 
@@ -114,11 +109,6 @@ class _TaskBuilder:
                 self.labels = [l.strip() for l in raw.split(",") if l.strip()]
                 return
 
-            m = RE_DUE.match(line)
-            if m:
-                self.due_date = date.fromisoformat(m.group(1))
-                return
-
             # Blank lines in metadata zone are skipped
             if line.strip() == "":
                 return
@@ -138,5 +128,4 @@ class _TaskBuilder:
             board_item_id=self.board_item_id,
             assignee=self.assignee,
             labels=self.labels,
-            due_date=self.due_date,
         )
