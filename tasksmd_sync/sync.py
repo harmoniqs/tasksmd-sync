@@ -260,36 +260,15 @@ def _needs_update(task: Task, board_item: ProjectItem) -> bool:
             logger.debug("    task:  %r", task_desc)
             logger.debug("    board: %r", board_desc)
         return True
-    if task.assignee and task.assignee != board_item.assignee:
-        logger.debug(
-            "  [DIFF] '%s' assignee: %r != %r",
-            task.title, task.assignee, board_item.assignee,
-        )
-        return True
     if task.due_date and task.due_date != board_item.due_date:
         logger.debug(
             "  [DIFF] '%s' due_date: %s != %s",
             task.title, task.due_date, board_item.due_date,
         )
         return True
-    if task.labels and sorted(task.labels) != sorted(board_item.labels):
-        logger.debug(
-            "  [DIFF] '%s' labels: %r != %r",
-            task.title, sorted(task.labels), sorted(board_item.labels),
-        )
-        return True
     # Note: Assignees and Labels are not compared here because _apply_task_fields
     # cannot sync them to DraftIssues via the Projects API. Comparing them would
     # create perpetual diffs. Re-enable when assignee/label sync is implemented.
-    return False
-
-
-    if task.labels and sorted(task.labels) != sorted(board_item.labels):
-        logger.debug(
-            "  [DIFF] '%s' labels: %r != %r",
-            task.title, sorted(task.labels), sorted(board_item.labels),
-        )
-        return True
     return False
 
 
