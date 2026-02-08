@@ -112,6 +112,13 @@ runs:
           exit 0
         fi
 
+        # Only comment when the tasks file was changed in this PR
+        if ! gh pr diff "${{ github.event.pull_request.number }}" --name-only \
+             | grep -qxF "${{ inputs.tasks-file }}"; then
+          echo "Tasks file not changed in this PR; skipping comment."
+          exit 0
+        fi
+
         CREATED=$(python3 -c "import json; print(json.load(open('/tmp/tasksmd-sync-result.json'))['created'])")
         UPDATED=$(python3 -c "import json; print(json.load(open('/tmp/tasksmd-sync-result.json'))['updated'])")
         ARCHIVED=$(python3 -c "import json; print(json.load(open('/tmp/tasksmd-sync-result.json'))['archived'])")
@@ -128,4 +135,5 @@ runs:
 
         > This is a preview. Changes will be applied when merged to main."
 
-        gh pr comment "${{ github.event.pull_request.number }}" --body "$BODY"
+        gh pr comment "${{ github.event.pull_request.number }}" \
+          --body "$BODY" --edit-last --create-if-none
