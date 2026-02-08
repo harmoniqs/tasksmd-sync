@@ -3,7 +3,8 @@ from tasksmd_sync.writeback import remove_done_tasks
 
 def test_remove_done_tasks(tmp_path):
     tasks_file = tmp_path / "TASKS.md"
-    tasks_file.write_text("""
+    tasks_file.write_text(
+        """
 # Project
 
 ## Todo
@@ -20,7 +21,9 @@ Remove this too.
 ## Future
 ### Planned Task
 Keep this.
-""", encoding="utf-8")
+""",
+        encoding="utf-8",
+    )
 
     modified = remove_done_tasks(tasks_file)
     assert modified is True
@@ -32,12 +35,16 @@ Keep this.
     assert "Planned Task" in content
     assert "## Done" in content
 
+
 def test_remove_done_tasks_no_done(tmp_path):
     tasks_file = tmp_path / "TASKS.md"
-    tasks_file.write_text("""
+    tasks_file.write_text(
+        """
 ## Todo
 ### Active Task
-""", encoding="utf-8")
+""",
+        encoding="utf-8",
+    )
 
     modified = remove_done_tasks(tasks_file)
     assert modified is False

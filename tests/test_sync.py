@@ -1,6 +1,5 @@
 """Tests for the sync engine (plan building, no API calls)."""
 
-
 from tasksmd_sync.github_projects import ProjectItem
 from tasksmd_sync.models import Task, TaskFile
 from tasksmd_sync.sync import build_sync_plan
@@ -15,10 +14,12 @@ def _make_board_item(item_id, title="", status="Todo", **kwargs):
 
 
 def test_new_tasks_are_created():
-    tf = TaskFile(tasks=[
-        _make_task("Task A"),
-        _make_task("Task B"),
-    ])
+    tf = TaskFile(
+        tasks=[
+            _make_task("Task A"),
+            _make_task("Task B"),
+        ]
+    )
     plan = build_sync_plan(tf, [])
     assert len(plan.create) == 2
     assert len(plan.update) == 0
@@ -26,9 +27,11 @@ def test_new_tasks_are_created():
 
 
 def test_matching_task_is_unchanged():
-    tf = TaskFile(tasks=[
-        _make_task("Task A", board_id="PVTI_1", status="Todo", description="desc"),
-    ])
+    tf = TaskFile(
+        tasks=[
+            _make_task("Task A", board_id="PVTI_1", status="Todo", description="desc"),
+        ]
+    )
     board = [
         _make_board_item("PVTI_1", title="Task A", status="Todo", description="desc"),
     ]
@@ -39,9 +42,11 @@ def test_matching_task_is_unchanged():
 
 
 def test_changed_task_is_updated():
-    tf = TaskFile(tasks=[
-        _make_task("Task A (renamed)", board_id="PVTI_1", status="In Progress"),
-    ])
+    tf = TaskFile(
+        tasks=[
+            _make_task("Task A (renamed)", board_id="PVTI_1", status="In Progress"),
+        ]
+    )
     board = [
         _make_board_item("PVTI_1", title="Task A", status="Todo"),
     ]
@@ -76,8 +81,15 @@ def test_archive_scoped_to_repo():
     """Board items from other repositories should NOT be archived."""
     tf = TaskFile(tasks=[])
     board = [
-        _make_board_item("PVTI_1", title="My repo task", repo_owner="harmoniqs", repo_name="tasksmd-sync"),
-        _make_board_item("PVTI_2", title="Other repo task", repo_owner="other", repo_name="repo"),
+        _make_board_item(
+            "PVTI_1",
+            title="My repo task",
+            repo_owner="harmoniqs",
+            repo_name="tasksmd-sync",
+        ),
+        _make_board_item(
+            "PVTI_2", title="Other repo task", repo_owner="other", repo_name="repo"
+        ),
     ]
     plan = build_sync_plan(tf, board, repo_owner="harmoniqs", repo_name="tasksmd-sync")
     assert len(plan.archive) == 1
@@ -86,9 +98,11 @@ def test_archive_scoped_to_repo():
 
 def test_unarchive_when_id_not_found():
     """If a task has an ID but it's not on the active board, try to unarchive."""
-    tf = TaskFile(tasks=[
-        _make_task("Archived Task", board_id="PVTI_archived"),
-    ])
+    tf = TaskFile(
+        tasks=[
+            _make_task("Archived Task", board_id="PVTI_archived"),
+        ]
+    )
     board = []  # Empty board (no active items)
     plan = build_sync_plan(tf, board)
     assert len(plan.unarchive) == 1
@@ -97,13 +111,19 @@ def test_unarchive_when_id_not_found():
 
 
 def test_mixed_operations():
-    tf = TaskFile(tasks=[
-        _make_task("Existing unchanged", board_id="PVTI_1", status="Todo", description="d"),
-        _make_task("Existing changed", board_id="PVTI_2", status="In Progress"),
-        _make_task("Brand new"),
-    ])
+    tf = TaskFile(
+        tasks=[
+            _make_task(
+                "Existing unchanged", board_id="PVTI_1", status="Todo", description="d"
+            ),
+            _make_task("Existing changed", board_id="PVTI_2", status="In Progress"),
+            _make_task("Brand new"),
+        ]
+    )
     board = [
-        _make_board_item("PVTI_1", title="Existing unchanged", status="Todo", description="d"),
+        _make_board_item(
+            "PVTI_1", title="Existing unchanged", status="Todo", description="d"
+        ),
         _make_board_item("PVTI_2", title="Existing changed", status="Todo"),
         _make_board_item("PVTI_3", title="To be archived"),
     ]
@@ -116,17 +136,21 @@ def test_mixed_operations():
 
 def test_missing_board_id_treated_as_unarchive():
     """If a task has a board_id that doesn't exist on the board, try to unarchive."""
-    tf = TaskFile(tasks=[
-        _make_task("Ghost", board_id="PVTI_nonexistent"),
-    ])
+    tf = TaskFile(
+        tasks=[
+            _make_task("Ghost", board_id="PVTI_nonexistent"),
+        ]
+    )
     plan = build_sync_plan(tf, [])
     assert len(plan.unarchive) == 1
 
 
 def test_status_change_triggers_update():
-    tf = TaskFile(tasks=[
-        _make_task("Task", board_id="PVTI_1", status="Done"),
-    ])
+    tf = TaskFile(
+        tasks=[
+            _make_task("Task", board_id="PVTI_1", status="Done"),
+        ]
+    )
     board = [
         _make_board_item("PVTI_1", title="Task", status="In Progress"),
     ]
@@ -135,9 +159,11 @@ def test_status_change_triggers_update():
 
 
 def test_description_change_triggers_update():
-    tf = TaskFile(tasks=[
-        _make_task("Task", board_id="PVTI_1", description="new description"),
-    ])
+    tf = TaskFile(
+        tasks=[
+            _make_task("Task", board_id="PVTI_1", description="new description"),
+        ]
+    )
     board = [
         _make_board_item("PVTI_1", title="Task", description="old description"),
     ]
@@ -150,11 +176,15 @@ def test_description_change_triggers_update():
 
 def test_title_fallback_matches_unlinked_task():
     """A task with no board ID should match an existing board item by title."""
-    tf = TaskFile(tasks=[
-        _make_task("Fix the bug", status="In Progress", description="new desc"),
-    ])
+    tf = TaskFile(
+        tasks=[
+            _make_task("Fix the bug", status="In Progress", description="new desc"),
+        ]
+    )
     board = [
-        _make_board_item("PVTI_99", title="Fix the bug", status="Todo", description="old desc"),
+        _make_board_item(
+            "PVTI_99", title="Fix the bug", status="Todo", description="old desc"
+        ),
     ]
     plan = build_sync_plan(tf, board)
     assert len(plan.create) == 0
@@ -166,9 +196,11 @@ def test_title_fallback_matches_unlinked_task():
 
 def test_title_fallback_matches_stale_id():
     """A task with a stale board ID should fall back to title matching."""
-    tf = TaskFile(tasks=[
-        _make_task("Fix the bug", board_id="PVTI_gone", status="In Progress"),
-    ])
+    tf = TaskFile(
+        tasks=[
+            _make_task("Fix the bug", board_id="PVTI_gone", status="In Progress"),
+        ]
+    )
     board = [
         _make_board_item("PVTI_real", title="Fix the bug", status="Todo"),
     ]
@@ -180,11 +212,17 @@ def test_title_fallback_matches_stale_id():
 
 def test_title_fallback_stale_id_unchanged_when_fields_match():
     """A task with a stale ID that title-matches should be unchanged if fields match."""
-    tf = TaskFile(tasks=[
-        _make_task("Fix the bug", board_id="PVTI_gone", status="Todo", description="desc"),
-    ])
+    tf = TaskFile(
+        tasks=[
+            _make_task(
+                "Fix the bug", board_id="PVTI_gone", status="Todo", description="desc"
+            ),
+        ]
+    )
     board = [
-        _make_board_item("PVTI_real", title="Fix the bug", status="Todo", description="desc"),
+        _make_board_item(
+            "PVTI_real", title="Fix the bug", status="Todo", description="desc"
+        ),
     ]
     plan = build_sync_plan(tf, board)
     assert len(plan.create) == 0
@@ -197,9 +235,11 @@ def test_title_fallback_stale_id_unchanged_when_fields_match():
 
 def test_title_fallback_no_match_creates():
     """If title doesn't match anything on the board, still create."""
-    tf = TaskFile(tasks=[
-        _make_task("Completely new task"),
-    ])
+    tf = TaskFile(
+        tasks=[
+            _make_task("Completely new task"),
+        ]
+    )
     board = [
         _make_board_item("PVTI_1", title="Something else"),
     ]
@@ -209,11 +249,15 @@ def test_title_fallback_no_match_creates():
 
 def test_title_fallback_unchanged_when_matching():
     """A title-matched task with no field differences should be unchanged."""
-    tf = TaskFile(tasks=[
-        _make_task("Same task", status="Todo", description="same"),
-    ])
+    tf = TaskFile(
+        tasks=[
+            _make_task("Same task", status="Todo", description="same"),
+        ]
+    )
     board = [
-        _make_board_item("PVTI_1", title="Same task", status="Todo", description="same"),
+        _make_board_item(
+            "PVTI_1", title="Same task", status="Todo", description="same"
+        ),
     ]
     plan = build_sync_plan(tf, board)
     assert len(plan.unchanged) == 1
@@ -224,10 +268,12 @@ def test_title_fallback_unchanged_when_matching():
 
 def test_title_fallback_no_double_match():
     """Two tasks with the same title should not both match the same board item."""
-    tf = TaskFile(tasks=[
-        _make_task("Duplicate title", status="Todo"),
-        _make_task("Duplicate title", status="In Progress"),
-    ])
+    tf = TaskFile(
+        tasks=[
+            _make_task("Duplicate title", status="Todo"),
+            _make_task("Duplicate title", status="In Progress"),
+        ]
+    )
     board = [
         _make_board_item("PVTI_1", title="Duplicate title", status="Todo"),
     ]
@@ -243,12 +289,17 @@ def test_title_fallback_no_double_match():
 
 def test_assignee_diff_ignored_for_draft_issue():
     """Assignee differences on DraftIssues should NOT trigger an update."""
-    tf = TaskFile(tasks=[
-        _make_task("Task", board_id="PVTI_1", assignee="alice"),
-    ])
+    tf = TaskFile(
+        tasks=[
+            _make_task("Task", board_id="PVTI_1", assignee="alice"),
+        ]
+    )
     board = [
         _make_board_item(
-            "PVTI_1", title="Task", content_type="DraftIssue", assignee=None,
+            "PVTI_1",
+            title="Task",
+            content_type="DraftIssue",
+            assignee=None,
         ),
     ]
     plan = build_sync_plan(tf, board)
@@ -258,12 +309,17 @@ def test_assignee_diff_ignored_for_draft_issue():
 
 def test_labels_diff_ignored_for_draft_issue():
     """Label differences on DraftIssues should NOT trigger an update."""
-    tf = TaskFile(tasks=[
-        _make_task("Task", board_id="PVTI_1", labels=["bug", "docs"]),
-    ])
+    tf = TaskFile(
+        tasks=[
+            _make_task("Task", board_id="PVTI_1", labels=["bug", "docs"]),
+        ]
+    )
     board = [
         _make_board_item(
-            "PVTI_1", title="Task", content_type="DraftIssue", labels=[],
+            "PVTI_1",
+            title="Task",
+            content_type="DraftIssue",
+            labels=[],
         ),
     ]
     plan = build_sync_plan(tf, board)
@@ -273,12 +329,17 @@ def test_labels_diff_ignored_for_draft_issue():
 
 def test_assignee_diff_triggers_update_for_issue():
     """Assignee differences on real Issues SHOULD trigger an update."""
-    tf = TaskFile(tasks=[
-        _make_task("Task", board_id="PVTI_1", assignee="alice"),
-    ])
+    tf = TaskFile(
+        tasks=[
+            _make_task("Task", board_id="PVTI_1", assignee="alice"),
+        ]
+    )
     board = [
         _make_board_item(
-            "PVTI_1", title="Task", content_type="Issue", assignee=None,
+            "PVTI_1",
+            title="Task",
+            content_type="Issue",
+            assignee=None,
         ),
     ]
     plan = build_sync_plan(tf, board)
@@ -287,12 +348,17 @@ def test_assignee_diff_triggers_update_for_issue():
 
 def test_labels_diff_triggers_update_for_issue():
     """Label differences on real Issues SHOULD trigger an update."""
-    tf = TaskFile(tasks=[
-        _make_task("Task", board_id="PVTI_1", labels=["bug"]),
-    ])
+    tf = TaskFile(
+        tasks=[
+            _make_task("Task", board_id="PVTI_1", labels=["bug"]),
+        ]
+    )
     board = [
         _make_board_item(
-            "PVTI_1", title="Task", content_type="Issue", labels=[],
+            "PVTI_1",
+            title="Task",
+            content_type="Issue",
+            labels=[],
         ),
     ]
     plan = build_sync_plan(tf, board)
@@ -301,12 +367,17 @@ def test_labels_diff_triggers_update_for_issue():
 
 def test_issue_unchanged_when_assignee_matches():
     """An Issue with matching assignee should be unchanged."""
-    tf = TaskFile(tasks=[
-        _make_task("Task", board_id="PVTI_1", assignee="alice"),
-    ])
+    tf = TaskFile(
+        tasks=[
+            _make_task("Task", board_id="PVTI_1", assignee="alice"),
+        ]
+    )
     board = [
         _make_board_item(
-            "PVTI_1", title="Task", content_type="Issue", assignee="alice",
+            "PVTI_1",
+            title="Task",
+            content_type="Issue",
+            assignee="alice",
         ),
     ]
     plan = build_sync_plan(tf, board)
@@ -316,12 +387,17 @@ def test_issue_unchanged_when_assignee_matches():
 
 def test_issue_unchanged_when_labels_match():
     """An Issue with matching labels should be unchanged."""
-    tf = TaskFile(tasks=[
-        _make_task("Task", board_id="PVTI_1", labels=["bug", "docs"]),
-    ])
+    tf = TaskFile(
+        tasks=[
+            _make_task("Task", board_id="PVTI_1", labels=["bug", "docs"]),
+        ]
+    )
     board = [
         _make_board_item(
-            "PVTI_1", title="Task", content_type="Issue", labels=["docs", "bug"],
+            "PVTI_1",
+            title="Task",
+            content_type="Issue",
+            labels=["docs", "bug"],
         ),
     ]
     plan = build_sync_plan(tf, board)

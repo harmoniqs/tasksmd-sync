@@ -62,7 +62,8 @@ def main(argv: list[str] | None = None) -> int:
         help="Log what would happen without making changes",
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Enable verbose logging",
     )
@@ -96,6 +97,7 @@ def main(argv: list[str] | None = None) -> int:
     token = args.token
     if not token:
         import os
+
         token = os.environ.get("GITHUB_TOKEN") or os.environ.get("TASKSMD_GITHUB_TOKEN")
     if not token:
         logging.error(
@@ -107,7 +109,9 @@ def main(argv: list[str] | None = None) -> int:
     repo_owner = repo_name = None
     if args.repo:
         if "/" not in args.repo:
-            logging.error("--repo must be in the form 'owner/name' (e.g. harmoniqs/tasksmd-sync)")
+            logging.error(
+                "--repo must be in the form 'owner/name' (e.g. harmoniqs/tasksmd-sync)"
+            )
             return 1
         repo_owner, repo_name = args.repo.split("/", 1)
 
@@ -132,7 +136,8 @@ def main(argv: list[str] | None = None) -> int:
         if archiving_count > 0:
             logging.info(
                 "Archiving %d 'Done' tasks and removing them from %s",
-                archiving_count, tasks_path
+                archiving_count,
+                tasks_path,
             )
 
     # Sync
