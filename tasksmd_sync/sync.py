@@ -19,6 +19,7 @@ class SyncPlan:
     update: list[tuple[Task, ProjectItem]] = field(default_factory=list)
     archive: list[ProjectItem] = field(default_factory=list)
     unchanged: list[Task] = field(default_factory=list)
+    title_matched: set[str] = field(default_factory=set)  # titles resolved via fallback
 
 
 @dataclass
@@ -73,10 +74,12 @@ def build_sync_plan(
             matched = _title_fallback_match(task, board_by_title, seen_board_ids)
             if matched:
                 seen_board_ids.add(matched.item_id)
+                stale_id = task.board_item_id
                 task.board_item_id = matched.item_id
-                logger.info(
+                plan.title_matched.add(task.title)
+                logger.debug(
                     "Task '%s' had stale ID '%s'; matched by title to %s",
-                    task.title, task.board_item_id, matched.item_id,
+                    task.title, stale_id, matched.item_id,
                 )
                 plan.update.append((task, matched))
             else:
@@ -92,7 +95,8 @@ def build_sync_plan(
             if matched:
                 seen_board_ids.add(matched.item_id)
                 task.board_item_id = matched.item_id
-                logger.info(
+                plan.title_matched.add(task.title)
+                logger.debug(
                     "Task '%s' matched by title to existing board item %s",
                     task.title, matched.item_id,
                 )
@@ -299,13 +303,43 @@ def _match_status_option(
 
 def _log_dry_run(plan: SyncPlan) -> None:
     """Log what a sync would do without executing."""
+    if plan.title_matched:
+        logger.debug(
+            "[DRY RUN] %d task(s) resolved via title fallback matching:",
+            len(plan.title_matched),
+        )
+        for title in sorted(plan.title_matched):
+            logger.debug("  [TITLE MATCH] '%s'", title)
+
     for task in plan.create:
         logger.info("[DRY RUN] Would create: '%s' (status: %s)", task.title, task.status)
     for task, bi in plan.update:
+        match_note = " [title-matched]" if task.title in plan.title_matched else ""
         logger.info(
-            "[DRY RUN] Would update: '%s' (%s)", task.title, bi.item_id
+            "[DRY RUN] Would update: '%s' (%s)%s", task.title, bi.item_id, match_note
+        )
+    for task in plan.unchanged:
+        match_note = " [title-matched]" if task.title in plan.title_matched else ""
+        logger.debug(
+            "[DRY RUN] Unchanged: '%s' (%s)%s",
+            task.title, task.board_item_id or "?", match_note,
         )
     for bi in plan.archive:
         logger.info(
             "[DRY RUN] Would archive: '%s' (%s)", bi.title, bi.item_id
         )
+
+    # Writeback preview
+    writeback_titles = [
+        t.title for t in plan.create
+    ] + [
+        t.title for t in (plan.unchanged + [pair[0] for pair in plan.update])
+        if t.title in plan.title_matched
+    ]
+    if writeback_titles:
+        logger.info(
+            "[DRY RUN] Would write back %d ID(s) to TASKS.md:",
+            len(writeback_titles),
+        )
+        for title in writeback_titles:
+            logger.info("  [WRITEBACK] '%s'", title)

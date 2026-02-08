@@ -119,14 +119,26 @@ def main(argv: list[str] | None = None) -> int:
         client.close()
 
     # Writeback IDs into TASKS.md
-    if args.writeback and not args.dry_run:
+    if args.writeback:
         all_ids = {**result.matched_ids, **result.created_ids}
-        if writeback_ids(tasks_path, all_ids):
-            logging.info(
-                "Wrote %d board item ID(s) back into %s",
-                len(all_ids),
-                tasks_path,
-            )
+        if args.dry_run:
+            if all_ids:
+                logging.info(
+                    "[DRY RUN] Would write back %d ID(s) to %s",
+                    len(all_ids),
+                    tasks_path,
+                )
+            else:
+                logging.info("[DRY RUN] No IDs to write back to %s", tasks_path)
+        elif all_ids:
+            if writeback_ids(tasks_path, all_ids):
+                logging.info(
+                    "Wrote %d board item ID(s) back into %s",
+                    len(all_ids),
+                    tasks_path,
+                )
+            else:
+                logging.info("No new IDs to write back (all tasks already have IDs)")
         else:
             logging.info("No new IDs to write back")
 
