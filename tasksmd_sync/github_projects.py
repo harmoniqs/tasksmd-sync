@@ -288,6 +288,66 @@ class GitHubProjectClient:
 
         return item
 
+    def get_item(self, item_id: str) -> ProjectItem | None:
+        """Fetch a single project item by its ID.
+
+        Returns the ProjectItem if found, or None if the item doesn't exist.
+        """
+        fields = self.get_fields()
+        status_field = fields.get("Status")
+
+        query = """
+        query($itemId: ID!) {
+          node(id: $itemId) {
+            ... on ProjectV2Item {
+              id
+              fieldValues(first: 20) {
+                nodes {
+                  ... on ProjectV2ItemFieldSingleSelectValue {
+                    field { ... on ProjectV2SingleSelectField { name } }
+                    name
+                  }
+                }
+              }
+              content {
+                __typename
+                ... on Issue {
+                  id
+                  title
+                  body
+                  repository {
+                    name
+                    owner { login }
+                  }
+                  assignees(first: 5) {
+                    nodes { login }
+                  }
+                  labels(first: 20) {
+                    nodes { name }
+                  }
+                }
+                ... on DraftIssue {
+                  id
+                  title
+                  body
+                  assignees(first: 5) {
+                    nodes { login }
+                  }
+                }
+              }
+            }
+          }
+        }
+        """
+        try:
+            data = self._graphql(query, {"itemId": item_id})
+            node = data.get("node")
+            if not node or "id" not in node:
+                return None
+            return self._parse_item_node(node, status_field)
+        except Exception:
+            return None
+
     # ------------------------------------------------------------------
     # Write operations
     # ------------------------------------------------------------------
@@ -609,6 +669,24 @@ class GitHubProjectClient:
         }
         """
         self._graphql(mutation, {"projectId": project_id, "itemId": item_id})
+
+    def reopen_issue(self, issue_id: str) -> None:
+        """Reopen a closed GitHub Issue.
+
+        Args:
+            issue_id: The Issue node ID (I_...), NOT the ProjectV2Item ID.
+        """
+        mutation = """
+        mutation($issueId: ID!) {
+          updateIssue(input: {
+            id: $issueId,
+            state: OPEN
+          }) {
+            issue { id }
+          }
+        }
+        """
+        self._graphql(mutation, {"issueId": issue_id})
 
     def close(self) -> None:
         """Close the HTTP client."""

@@ -2,12 +2,6 @@
 
 ## Todo
 
-### When moving tasks back from archive + done, issue remains closed but status updates
-<!-- id: PVTI_lADOC9ysqc4BETyazglCVcc -->
-
-### When moving tasks back from archive + done, --archive-done flag does not seem to be idempotent and requires a follow up run without the flag
-<!-- id: PVTI_lADOC9ysqc4BETyazglCVcg -->
-
 ## In Progress
 
 ### Implement label syncing for items
@@ -20,3 +14,8 @@ corresponding GitHub Issues. This includes:
 
 ## Done
 
+### When moving tasks back from archive + done, issue remains closed but status updates
+<!-- id: PVTI_lADOC9ysqc4BETyazglCVcc -->
+
+### When moving tasks back from archive + done, --archive-done flag does not seem to be idempotent and requires a follow up run without the flag
+<!-- id: PVTI_lADOC9ysqc4BETyazglCVcg -->

@@ -126,9 +126,12 @@ def main(argv: list[str] | None = None) -> int:
     task_file = parse_tasks_file(tasks_path)
     logging.info("Found %d tasks", len(task_file.tasks))
 
-    # If --archive-done is set, we only sync tasks that are NOT Done.
-    # The Done tasks will be removed from the local file and archived on the board
-    # by the normal sync process (because they are no longer in the task list).
+    # If --archive-done is set, remove Done tasks from the file first (for
+    # idempotency), then filter them from the task list before syncing.
+    if args.archive_done and not args.dry_run:
+        if remove_done_tasks(tasks_path):
+            logging.info("Removed 'Done' tasks from %s", tasks_path)
+            task_file = parse_tasks_file(tasks_path)
     if args.archive_done:
         original_count = len(task_file.tasks)
         task_file.tasks = [t for t in task_file.tasks if t.status != "Done"]
@@ -181,11 +184,6 @@ def main(argv: list[str] | None = None) -> int:
                 logging.info("No new IDs to write back (all tasks already have IDs)")
         else:
             logging.info("No new IDs to write back")
-
-    # If --archive-done is set, remove them from the file now
-    if args.archive_done and not args.dry_run:
-        if remove_done_tasks(tasks_path):
-            logging.info("Removed 'Done' tasks from %s", tasks_path)
 
     # Report
     logging.info(
