@@ -186,17 +186,22 @@ def execute_sync(
     # Update existing items
     for task, board_item in plan.update:
         try:
-            _apply_task_fields(client, board_item.item_id, task, fields)
-            # Update title/body on draft issues (requires the content node ID)
-            if board_item.content_type == "DraftIssue" and board_item.content_id:
+            _apply_task_fields(client, board_item.item_id, task, fields, board_item)
+            # Update title/body on the underlying content node
+            if board_item.content_id:
                 try:
-                    client.update_draft_issue_body(
-                        board_item.content_id, task.title, task.description
-                    )
+                    if board_item.content_type == "DraftIssue":
+                        client.update_draft_issue_body(
+                            board_item.content_id, task.title, task.description
+                        )
+                    elif board_item.content_type == "Issue":
+                        client.update_issue(
+                            board_item.content_id, task.title, task.description
+                        )
                 except Exception as e:
                     logger.debug(
-                        "Failed to update draft issue body for '%s': %s",
-                        task.title, e,
+                        "Failed to update %s body for '%s': %s",
+                        board_item.content_type, task.title, e,
                     )
             logger.info("Updated board item '%s' (%s)", task.title, board_item.item_id)
             result.updated += 1
@@ -266,9 +271,24 @@ def _needs_update(task: Task, board_item: ProjectItem) -> bool:
             task.title, task.due_date, board_item.due_date,
         )
         return True
-    # Note: Assignees and Labels are not compared here because _apply_task_fields
-    # cannot sync them to DraftIssues via the Projects API. Comparing them would
-    # create perpetual diffs. Re-enable when assignee/label sync is implemented.
+    # Assignees and Labels are properties of the underlying content node, not
+    # project fields.  We can only sync them when the content is a real Issue;
+    # DraftIssues don't support assignees/labels via the API, so comparing
+    # them would create perpetual diffs.
+    is_issue = board_item.content_type == "Issue"
+    if is_issue:
+        if task.assignee and task.assignee != board_item.assignee:
+            logger.debug(
+                "  [DIFF] '%s' assignee: %r != %r",
+                task.title, task.assignee, board_item.assignee,
+            )
+            return True
+        if task.labels and sorted(task.labels) != sorted(board_item.labels):
+            logger.debug(
+                "  [DIFF] '%s' labels: %r != %r",
+                task.title, sorted(task.labels), sorted(board_item.labels),
+            )
+            return True
     return False
 
 
@@ -277,8 +297,18 @@ def _apply_task_fields(
     item_id: str,
     task: Task,
     fields: dict,
+    board_item: ProjectItem | None = None,
 ) -> None:
-    """Apply task metadata to a board item's project fields."""
+    """Apply task metadata to a board item's project fields.
+
+    Args:
+        client: GitHub Projects API client.
+        item_id: The ProjectV2Item ID (PVTI_...).
+        task: The task to sync.
+        fields: Project field definitions.
+        board_item: The existing board item (if updating). Used to determine
+            content type and content ID for assignee/label sync on real Issues.
+    """
     # Status — match case-insensitively against board options
     if task.status and "Status" in fields:
         status_field = fields["Status"]
@@ -298,10 +328,26 @@ def _apply_task_fields(
         if due_field:
             client.update_item_field_date(item_id, due_field.id, task.due_date)
 
-    # Note: Assignees and Labels are properties of the underlying Issue/DraftIssue
-    # content, not project fields. For draft issues created via the API, these are
-    # set via the draft issue mutation. Full issue assignee/label sync would require
-    # converting draft issues to real issues — left as a future enhancement.
+    # Assignees and Labels — only syncable on real Issues (not DraftIssues)
+    is_issue = board_item and board_item.content_type == "Issue" and board_item.content_id
+    if is_issue:
+        if task.assignee and task.assignee != board_item.assignee:
+            user_id = client.resolve_user_id(task.assignee)
+            if user_id:
+                client.set_issue_assignees(board_item.content_id, [user_id])
+            else:
+                logger.warning(
+                    "Could not resolve GitHub user '%s' for assignee", task.assignee
+                )
+        if task.labels and sorted(task.labels) != sorted(board_item.labels):
+            # We need repo owner/name to resolve label IDs — extract from org
+            label_ids = client.resolve_label_ids(client.org, "", task.labels)
+            if label_ids:
+                client.set_issue_labels(board_item.content_id, label_ids)
+            else:
+                logger.debug(
+                    "Could not resolve label IDs for %r", task.labels
+                )
 
 
 def _match_status_option(

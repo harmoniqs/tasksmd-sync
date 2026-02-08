@@ -224,3 +224,94 @@ def test_title_fallback_no_double_match():
     matched = len(plan.update) + len(plan.unchanged)
     assert matched == 1
     assert len(plan.create) == 1
+
+
+# --- Content-type-aware diff (Issue vs DraftIssue) ---
+
+
+def test_assignee_diff_ignored_for_draft_issue():
+    """Assignee differences on DraftIssues should NOT trigger an update."""
+    tf = TaskFile(tasks=[
+        _make_task("Task", board_id="PVTI_1", assignee="alice"),
+    ])
+    board = [
+        _make_board_item(
+            "PVTI_1", title="Task", content_type="DraftIssue", assignee=None,
+        ),
+    ]
+    plan = build_sync_plan(tf, board)
+    assert len(plan.unchanged) == 1
+    assert len(plan.update) == 0
+
+
+def test_labels_diff_ignored_for_draft_issue():
+    """Label differences on DraftIssues should NOT trigger an update."""
+    tf = TaskFile(tasks=[
+        _make_task("Task", board_id="PVTI_1", labels=["bug", "docs"]),
+    ])
+    board = [
+        _make_board_item(
+            "PVTI_1", title="Task", content_type="DraftIssue", labels=[],
+        ),
+    ]
+    plan = build_sync_plan(tf, board)
+    assert len(plan.unchanged) == 1
+    assert len(plan.update) == 0
+
+
+def test_assignee_diff_triggers_update_for_issue():
+    """Assignee differences on real Issues SHOULD trigger an update."""
+    tf = TaskFile(tasks=[
+        _make_task("Task", board_id="PVTI_1", assignee="alice"),
+    ])
+    board = [
+        _make_board_item(
+            "PVTI_1", title="Task", content_type="Issue", assignee=None,
+        ),
+    ]
+    plan = build_sync_plan(tf, board)
+    assert len(plan.update) == 1
+
+
+def test_labels_diff_triggers_update_for_issue():
+    """Label differences on real Issues SHOULD trigger an update."""
+    tf = TaskFile(tasks=[
+        _make_task("Task", board_id="PVTI_1", labels=["bug"]),
+    ])
+    board = [
+        _make_board_item(
+            "PVTI_1", title="Task", content_type="Issue", labels=[],
+        ),
+    ]
+    plan = build_sync_plan(tf, board)
+    assert len(plan.update) == 1
+
+
+def test_issue_unchanged_when_assignee_matches():
+    """An Issue with matching assignee should be unchanged."""
+    tf = TaskFile(tasks=[
+        _make_task("Task", board_id="PVTI_1", assignee="alice"),
+    ])
+    board = [
+        _make_board_item(
+            "PVTI_1", title="Task", content_type="Issue", assignee="alice",
+        ),
+    ]
+    plan = build_sync_plan(tf, board)
+    assert len(plan.unchanged) == 1
+    assert len(plan.update) == 0
+
+
+def test_issue_unchanged_when_labels_match():
+    """An Issue with matching labels should be unchanged."""
+    tf = TaskFile(tasks=[
+        _make_task("Task", board_id="PVTI_1", labels=["bug", "docs"]),
+    ])
+    board = [
+        _make_board_item(
+            "PVTI_1", title="Task", content_type="Issue", labels=["docs", "bug"],
+        ),
+    ]
+    plan = build_sync_plan(tf, board)
+    assert len(plan.unchanged) == 1
+    assert len(plan.update) == 0

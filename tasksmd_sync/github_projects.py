@@ -398,6 +398,119 @@ class GitHubProjectClient:
             {"draftIssueId": draft_issue_id, "title": title, "body": body},
         )
 
+    def update_issue(self, issue_id: str, title: str, body: str) -> None:
+        """Update a real issue's title and body.
+
+        Args:
+            issue_id: The Issue node ID (I_...), NOT the ProjectV2Item ID (PVTI_...).
+        """
+        mutation = """
+        mutation($issueId: ID!, $title: String!, $body: String) {
+          updateIssue(input: {
+            id: $issueId,
+            title: $title,
+            body: $body
+          }) {
+            issue { id }
+          }
+        }
+        """
+        self._graphql(
+            mutation,
+            {"issueId": issue_id, "title": title, "body": body},
+        )
+
+    def set_issue_assignees(self, issue_id: str, user_ids: list[str]) -> None:
+        """Replace assignees on a real issue.
+
+        Args:
+            issue_id: The Issue node ID.
+            user_ids: List of GitHub user node IDs to assign.
+        """
+        mutation = """
+        mutation($issueId: ID!, $assigneeIds: [ID!]!) {
+          updateIssue(input: {
+            id: $issueId,
+            assigneeIds: $assigneeIds
+          }) {
+            issue { id }
+          }
+        }
+        """
+        self._graphql(mutation, {"issueId": issue_id, "assigneeIds": user_ids})
+
+    def resolve_user_id(self, login: str) -> str | None:
+        """Resolve a GitHub username to a node ID."""
+        query = """
+        query($login: String!) {
+          user(login: $login) {
+            id
+          }
+        }
+        """
+        try:
+            data = self._graphql(query, {"login": login})
+            return data["user"]["id"]
+        except Exception:
+            return None
+
+    def set_issue_labels(self, issue_id: str, label_ids: list[str]) -> None:
+        """Replace labels on a real issue.
+
+        Args:
+            issue_id: The Issue node ID.
+            label_ids: List of label node IDs to set.
+        """
+        mutation = """
+        mutation($issueId: ID!, $labelIds: [ID!]!) {
+          updateIssue(input: {
+            id: $issueId,
+            labelIds: $labelIds
+          }) {
+            issue { id }
+          }
+        }
+        """
+        self._graphql(mutation, {"issueId": issue_id, "labelIds": label_ids})
+
+    def resolve_label_ids(self, repo_owner: str, repo_name: str, label_names: list[str]) -> list[str]:
+        """Resolve label names to node IDs for a given repository.
+
+        Args:
+            repo_owner: Repository owner (org or user).
+            repo_name: Repository name.
+            label_names: Label names to resolve.
+
+        Returns:
+            List of label node IDs (only for labels that were found).
+        """
+        if not label_names:
+            return []
+        # Fetch labels from the repo and match by name
+        query = """
+        query($owner: String!, $name: String!) {
+          repository(owner: $owner, name: $name) {
+            labels(first: 100) {
+              nodes {
+                id
+                name
+              }
+            }
+          }
+        }
+        """
+        try:
+            data = self._graphql(query, {"owner": repo_owner, "name": repo_name})
+            repo_labels = data["repository"]["labels"]["nodes"]
+            name_to_id = {l["name"].lower(): l["id"] for l in repo_labels}
+            return [
+                name_to_id[name.lower()]
+                for name in label_names
+                if name.lower() in name_to_id
+            ]
+        except Exception:
+            return []
+
     def archive_item(self, item_id: str) -> None:
         """Archive an item from the project board."""
         project_id = self.get_project_id()
