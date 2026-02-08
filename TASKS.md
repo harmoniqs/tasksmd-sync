@@ -1,6 +1,6 @@
 # Tasks
 
-## Todo
+## In Progress
 
 ### Implement label syncing for items
 <!-- id: PVTI_lADOC9ysqc4BETyazglCOOI -->
