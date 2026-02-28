@@ -91,6 +91,8 @@ runs:
     - name: Commit writeback changes
       if: inputs.writeback == 'true' && inputs.dry-run != 'true'
       shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
       run: |
         if git diff --quiet "${{ inputs.tasks-file }}"; then
           echo "No writeback changes to commit"
@@ -98,6 +100,7 @@ runs:
         fi
         git config user.name "tasksmd-sync[bot]"
         git config user.email "tasksmd-sync[bot]@users.noreply.github.com"
+        git remote set-url origin "https://x-access-token:${{ inputs.github-token }}@github.com/${{ github.repository }}.git"
         git add "${{ inputs.tasks-file }}"
         git commit -m "chore: write back board item IDs to ${{ inputs.tasks-file }}"
         git push
