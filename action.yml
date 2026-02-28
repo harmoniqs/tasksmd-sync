@@ -31,6 +31,10 @@ inputs:
     description: 'If true, open a PR for writeback changes instead of pushing directly (for repos with branch protection on main)'
     required: false
     default: 'false'
+  repo:
+    description: 'Target repository for creating real Issues instead of DraftIssues (format: owner/name)'
+    required: false
+    default: ''
 
 outputs:
   created:
@@ -72,6 +76,10 @@ runs:
 
         if [ -n "${{ inputs.repo-label }}" ]; then
           ARGS="$ARGS --repo-label '${{ inputs.repo-label }}'"
+        fi
+
+        if [ -n "${{ inputs.repo }}" ]; then
+          ARGS="$ARGS --repo '${{ inputs.repo }}'"
         fi
 
         if [ "${{ inputs.dry-run }}" = "true" ]; then
