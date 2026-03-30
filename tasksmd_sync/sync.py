@@ -159,6 +159,9 @@ def execute_sync(
     """
     result = SyncResult()
 
+    if repo_owner and repo_name:
+        _validate_labels(client, task_file, repo_owner, repo_name)
+
     logger.info("Fetching current board state...")
     board_items = client.list_items()
     logger.info("Found %d items on the board", len(board_items))
@@ -380,6 +383,30 @@ def _title_fallback_match(
     if matched and matched.item_id not in seen_board_ids:
         return matched
     return None
+
+
+def _validate_labels(
+    client: GitHubProjectClient,
+    task_file: TaskFile,
+    repo_owner: str,
+    repo_name: str,
+) -> None:
+    """Raise ValueError if any labels in TASKS.md don't exist in the repository.
+
+    This prevents silent label-sync failures caused by referencing label names
+    that haven't been created yet.
+    """
+    wanted = {label for task in task_file.tasks for label in task.labels}
+    if not wanted:
+        return
+    existing = client.list_label_names(repo_owner, repo_name)
+    missing = sorted(label for label in wanted if label.lower() not in existing)
+    if missing:
+        raise ValueError(
+            f"TASKS.md references label(s) that don't exist in "
+            f"{repo_owner}/{repo_name}: {', '.join(missing)}. "
+            f"Create them first or remove them from TASKS.md."
+        )
 
 
 def _needs_update(task: Task, board_item: ProjectItem) -> bool:

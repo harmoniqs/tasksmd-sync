@@ -600,6 +600,24 @@ class GitHubProjectClient:
         """
         self._graphql(mutation, {"issueId": issue_id, "labelIds": label_ids})
 
+    def list_label_names(self, repo_owner: str, repo_name: str) -> set[str]:
+        """Return the set of label names (lowercased) defined in a repository."""
+        query = """
+        query($owner: String!, $name: String!) {
+          repository(owner: $owner, name: $name) {
+            labels(first: 100) {
+              nodes { name }
+            }
+          }
+        }
+        """
+        data = self._graphql(query, {"owner": repo_owner, "name": repo_name})
+        return {
+            node["name"].lower()
+            for node in data["repository"]["labels"]["nodes"]
+            if node.get("name")
+        }
+
     def resolve_label_ids(
         self, repo_owner: str, repo_name: str, label_names: list[str]
     ) -> list[str]:
