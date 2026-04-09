@@ -590,6 +590,32 @@ class TestExecuteSyncIssue:
         assert result.updated == 1
         client.set_issue_labels.assert_not_called()
 
+    def test_remove_all_labels_from_issue(self):
+        """Labels should be cleared when task has no labels but issue does."""
+        board = [
+            _make_board_item(
+                "PVTI_1",
+                title="Task",
+                status="Todo",
+                content_type="Issue",
+                content_id="I_1",
+                labels=["bug", "docs"],
+                repo_name="tasksmd-sync",
+            ),
+        ]
+        client = _mock_client(board)
+        tf = TaskFile(
+            tasks=[
+                _make_task("Task", board_id="PVTI_1", labels=[]),
+            ]
+        )
+
+        result = execute_sync(client, tf)
+
+        assert result.updated == 1
+        client.resolve_label_ids.assert_not_called()
+        client.set_issue_labels.assert_called_once_with("I_1", [])
+
     def test_update_error_recorded(self):
         """Errors during update should be captured in result.errors."""
         board = [
@@ -780,11 +806,11 @@ class TestNeedsUpdate:
         board = _make_board_item("X", title="T", content_type="Issue", assignee="bob")
         assert _needs_update(task, board) is False
 
-    def test_no_diff_when_task_has_no_labels(self):
-        """If task has no labels, board's labels shouldn't cause a diff."""
+    def test_labels_removed_when_task_has_no_labels(self):
+        """If task has no labels but board has labels, it SHOULD cause a diff."""
         task = _make_task("T")
         board = _make_board_item("X", title="T", content_type="Issue", labels=["bug"])
-        assert _needs_update(task, board) is False
+        assert _needs_update(task, board) is True
 
     def test_label_order_irrelevant(self):
         """Labels should be compared as sets (order doesn't matter)."""
@@ -947,6 +973,25 @@ class TestApplyTaskFields:
 
         client.resolve_user_id.assert_not_called()
         client.set_issue_labels.assert_not_called()
+
+    def test_issue_clears_labels_when_task_has_none(self):
+        """Real Issue should have labels cleared when task has no labels."""
+        client = _mock_client()
+        fields = _stub_fields()
+        task = _make_task("T", labels=[])
+        bi = _make_board_item(
+            "PVTI_1",
+            title="T",
+            content_type="Issue",
+            content_id="I_1",
+            labels=["bug", "docs"],
+            repo_name="tasksmd-sync",
+        )
+
+        _apply_task_fields(client, "PVTI_1", task, fields, board_item=bi)
+
+        client.resolve_label_ids.assert_not_called()
+        client.set_issue_labels.assert_called_once_with("I_1", [])
 
 
 # ===================================================================
